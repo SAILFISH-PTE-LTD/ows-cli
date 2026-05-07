@@ -60,8 +60,10 @@ def planet():
 def planet_types(client):
     """List product categories."""
     result = client.planet.get_planet_type()
+    click.echo(f"{'Category UUID':36s}  {'Name':20s}  Status  Billing")
+    click.echo("-" * 80)
     for t in result:
-        click.echo(f"{t.category_uuid}  {t.name:20s}  status={t.status}  billing={t.billing_model}")
+        click.echo(f"{t.category_uuid}  {t.name:20s}  {t.status:6d}  {t.billing_model}")
 
 
 @planet.command("images")
@@ -76,9 +78,11 @@ def planet_images(client, region, is_self):
         sys.exit(1)
     result = client.planet.get_image_by_region(region, is_self)
     for group in result:
-        click.echo(f"{group.name} ({group.icon_type})")
+        click.echo(f"\n{group.name} ({group.icon_type})")
+        click.echo(f"  {'ID':5s}  {'Name':35s}  UUID")
+        click.echo(f"  {'-'*5}  {'-'*35}  {'-'*36}")
         for img in group.images:
-            click.echo(f"  id={img['id']:5d}  {img['name']:35s}  uuid={img.get('uuid', '')}")
+            click.echo(f"  {img['id']:5d}  {img['name']:35s}  {img.get('uuid', '')}")
 
 
 @planet.command("flavors")
@@ -95,10 +99,12 @@ def planet_flavors(client, region, category):
         click.echo(f"Error: Missing --category UUID. {UUID_HELP['category']}", err=True)
         sys.exit(1)
     result = client.planet.get_flavor_by_add(region, category)
+    click.echo(f"{'Name':20s}  {'UUID':36s}  Cores  Memory  Price/h     Price/m")
+    click.echo("-" * 100)
     for f in result:
         cores = str(f.cores).rjust(4)
         mem = str(f.memory).rjust(6)
-        click.echo(f"{f.name:20s}  uuid={f.uuid}  {cores} cores  {mem}GB  ${f.h_price}/h  ${f.m_price}/m")
+        click.echo(f"{f.name:20s}  {f.uuid}  {cores}  {mem}  ${float(str(f.h_price)):<10.8f}  ${float(str(f.m_price)):<10.2f}")
 
 
 @planet.command("price")
@@ -208,6 +214,9 @@ def planet_list(client, region, page, size, name, ip, status):
         name=name, ip=ip, status=status,
     )
     result = client.planet.list_instances(req)
+    header = f"{'UUID':36s}  {'Name':20s}  {'Status':8s}  {'Public IP':15s}  {'Flavor':10s}  {'Region UUID'}"
+    click.echo(header)
+    click.echo("-" * len(header))
     for inst in result.list:
         click.echo(f"{inst.uuid:36s}  {inst.name:20s}  {inst.status_name:8s}  {inst.public_ip:15s}  {inst.flavor_name:10s}  {inst.region_uuid}")
     click.echo(f"--- {result.total} total")
@@ -318,12 +327,14 @@ def product_status(client, uuid):
 def product_regions(client, category):
     """List available regions."""
     result = client.product.get_region(category)
+    click.echo(f"{'Region':30s}  {'City Code':8s}  {'Region UUID'}")
+    click.echo("-" * 90)
     for r in result:
-        click.echo(f"{r.name:30s}  id={r.id}")
+        click.echo(f"{r.name:30s}")
         for child in r.children:
             zones = child.get("zone", [])
             for z in zones:
-                click.echo(f"  {child.get('name', ''):28s}  code={z.get('city_code', '')}  uuid={z.get('region_uuid', '')}")
+                click.echo(f"  {child.get('name', ''):28s}  {z.get('city_code', ''):8s}  {z.get('region_uuid', '')}")
 
 
 if __name__ == "__main__":
