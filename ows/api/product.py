@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ows.client import OwsClient
-from ows.models import StatusResult
+from ows.models import StatusResult, _from_dict
 
 
 class ProductAPI:
@@ -14,4 +14,4 @@ class ProductAPI:
 
     def get_status(self, uuid: str) -> StatusResult:
         data = self._client.post("/console/product/getStatusByUuid", {"uuid": uuid})
-        return StatusResult(status=data.get("status", 0))
+        return _from_dict(StatusResult, data)

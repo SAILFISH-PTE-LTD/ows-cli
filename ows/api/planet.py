@@ -6,7 +6,7 @@ if TYPE_CHECKING:
 from ows.models import (
     PlanetType, Image, Flavor, PriceRequest, PriceResult,
     CreateRequest, CreateResult, ListRequest, Instance, InstanceDetail,
-    ListResult,
+    ListResult, _from_dict,
 )
 
 
@@ -18,29 +18,29 @@ class PlanetAPI:
 
     def get_planet_type(self) -> List[PlanetType]:
         data = self._client.post("/console/planet/getPlanetType")
-        return [PlanetType(**item) for item in (data or [])]
+        return [_from_dict(PlanetType, item) for item in (data or [])]
 
     def get_image_by_region(self, region_uuid: str, is_self: int = 0) -> List[Image]:
         data = self._client.post("/console/planet/getImageByRegion", {
             "region_uuid": region_uuid, "is_self": is_self
         })
-        return [Image(**item) for item in (data or [])]
+        return [_from_dict(Image, item) for item in (data or [])]
 
     def get_flavor_by_add(self, region_uuid: str, category_uuid: str) -> List[Flavor]:
         data = self._client.post("/console/planet/getFlavorByAdd", {
             "region_uuid": region_uuid, "category_uuid": category_uuid
         })
-        return [Flavor(**item) for item in (data or [])]
+        return [_from_dict(Flavor, item) for item in (data or [])]
 
     # --- Price & Create ---
 
     def get_price(self, req: PriceRequest) -> PriceResult:
         data = self._client.post("/console/planet/getPrice", asdict(req))
-        return PriceResult(**{k: v for k, v in data.items() if k in PriceResult.__dataclass_fields__})
+        return _from_dict(PriceResult, data)
 
     def create(self, req: CreateRequest) -> CreateResult:
         data = self._client.post("/console/planet/add", asdict(req))
-        return CreateResult(uuid=data.get("uuid", ""))
+        return _from_dict(CreateResult, data) if data else CreateResult(uuid="")
 
     # --- Instance lifecycle ---
 
@@ -48,7 +48,7 @@ class PlanetAPI:
         if req is None:
             req = ListRequest()
         data = self._client.post("/console/planet/list", asdict(req))
-        instances = [Instance(**item) for item in data.get("list", [])]
+        instances = [_from_dict(Instance, item) for item in data.get("list", [])]
         return ListResult(list=instances, total=data.get("total", 0))
 
     def get_detail(self, uuid: str, project_uuid: str = None) -> InstanceDetail:
@@ -56,7 +56,7 @@ class PlanetAPI:
         if project_uuid:
             body["project_uuid"] = project_uuid
         data = self._client.post("/console/planet/getDetail", body)
-        return InstanceDetail(**{k: v for k, v in data.items() if k in InstanceDetail.__dataclass_fields__})
+        return _from_dict(InstanceDetail, data)
 
     def stop(self, uuid: str) -> None:
         self._client.post("/console/planet/stop", {"uuid": uuid})

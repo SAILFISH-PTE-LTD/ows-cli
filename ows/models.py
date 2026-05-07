@@ -1,7 +1,14 @@
-from dataclasses import dataclass, field
-from typing import List, Generic, TypeVar
+from dataclasses import dataclass, field, fields as dc_fields
+from typing import List, Generic, TypeVar, Type
 
 T = TypeVar("T")
+
+
+def _from_dict(cls: Type[T], data: dict) -> T:
+    """Construct a dataclass from a dict, ignoring unknown keys."""
+    known = {f.name for f in dc_fields(cls)}
+    filtered = {k: v for k, v in data.items() if k in known}
+    return cls(**filtered)
 
 
 @dataclass
@@ -139,27 +146,50 @@ class ListRequest:
 @dataclass
 class Instance:
     uuid: str = ""
+    sid: int = 0
+    uid: int = 0
     flavor_name: str = ""
+    flavor_uuid: str = ""
     model: str = ""
+    model_id: int = 0
     cores: str = ""
     memory: str = ""
     storage: str = ""
     nic: str = ""
     gpu: str = ""
     name: str = ""
+    host: str = ""
     region_uuid: str = ""
     region_name: str = ""
+    region_id: int = 0
+    city_name: str = ""
+    city_code: str = ""
     status: int = 0
     status_name: str = ""
+    system_type: int = 0
     create_time: str = ""
-    private_ip: str = ""
+    stop_time: int = 0
+    delete_time: int = 0
+    end_time: int = 0
+    private_ip: list = field(default_factory=list)
     public_ip: str = ""
     public_ipv6: str = ""
+    image_id: int = 0
     image_name: str = ""
+    image_uuid: str = ""
     os_icon_type: str = ""
     project_uuid: str = ""
     billing_model: int = 0
     service_period: int = 0
+    amount: int = 0
+    bandwidth_cap: int = 0
+    speed_type: int = 0
+    is_enable_security_group: int = 0
+    is_own: int = 0
+    product_type: int = 0
+    app_market_type: str = ""
+    email: str = ""
+    username: str = ""
     data_disk: list = field(default_factory=list)
 
 
