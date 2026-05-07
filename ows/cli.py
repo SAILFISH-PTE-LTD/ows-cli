@@ -63,8 +63,10 @@ def planet_types(client):
 def planet_images(client, region, is_self):
     """List available images in a region."""
     result = client.planet.get_image_by_region(region, is_self)
-    for img in result:
-        click.echo(f"{img.id:5d}  {img.name:30s}  {img.uuid}")
+    for group in result:
+        click.echo(f"{group.name} ({group.icon_type})")
+        for img in group.images:
+            click.echo(f"  id={img['id']:5d}  {img['name']:35s}  uuid={img.get('uuid', '')}")
 
 
 @planet.command("flavors")
@@ -76,9 +78,9 @@ def planet_flavors(client, region, category):
     """List available flavors."""
     result = client.planet.get_flavor_by_add(region, category)
     for f in result:
-        cores = f.cores.rjust(4)
-        mem = f.memory.rjust(6)
-        click.echo(f"{f.name:20s}  {f.uuid}  {cores} cores  {mem} mem  ${f.h_price}/h  ${f.m_price}/m")
+        cores = str(f.cores).rjust(4)
+        mem = str(f.memory).rjust(6)
+        click.echo(f"{f.name:20s}  uuid={f.uuid}  {cores} cores  {mem}GB  ${f.h_price}/h  ${f.m_price}/m")
 
 
 @planet.command("price")

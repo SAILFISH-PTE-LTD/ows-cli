@@ -5,9 +5,17 @@ T = TypeVar("T")
 
 
 def _from_dict(cls: Type[T], data: dict) -> T:
-    """Construct a dataclass from a dict, ignoring unknown keys."""
-    known = {f.name for f in dc_fields(cls)}
-    filtered = {k: v for k, v in data.items() if k in known}
+    """Construct a dataclass from a dict, ignoring unknown keys, coercing types."""
+    known = {f.name: f for f in dc_fields(cls)}
+    filtered = {}
+    for k, v in data.items():
+        if k not in known:
+            continue
+        ftype = known[k].type
+        if ftype is float and isinstance(v, str):
+            filtered[k] = float(v)
+        else:
+            filtered[k] = v
     return cls(**filtered)
 
 
@@ -46,22 +54,21 @@ class Image:
     id: int
     name: str
     icon_type: str = ""
-    images: str = ""
-    uuid: str = ""
+    type: int = 0
+    images: list = field(default_factory=list)
 
 
 @dataclass
 class Flavor:
     uuid: str
     name: str
-    cores: str = ""
-    memory: str = ""
-    storage: str = ""
-    nic: str = ""
-    gpu: str = ""
+    id: int = 0
+    cores: int = 0
+    memory: int = 0
     h_price: float = 0.0
     m_price: float = 0.0
     h_discount_price: float = 0.0
+    m_discount_price: float = 0.0
     free_flow: int = 0
     status: int = 0
 
