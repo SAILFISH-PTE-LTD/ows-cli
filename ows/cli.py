@@ -245,9 +245,11 @@ def product_regions(client, category):
     """List available regions."""
     result = client.product.get_region(category)
     for r in result:
-        click.echo(f"{r.name:30s}  city={r.city_code}  id={r.id}")
+        click.echo(f"{r.name:30s}  id={r.id}")
         for child in r.children:
-            click.echo(f"  {child.get('name', ''):28s}  city={child.get('city_code', '')}  id={child.get('id', '')}")
+            zones = child.get("zone", [])
+            for z in zones:
+                click.echo(f"  {child.get('name', ''):28s}  code={z.get('city_code', '')}  uuid={z.get('region_uuid', '')}")
 
 
 if __name__ == "__main__":
