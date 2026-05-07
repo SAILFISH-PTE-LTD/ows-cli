@@ -34,16 +34,13 @@ UUID_HELP = {
 }
 
 STATUS_MAP = {
-    0: "Creating",
+    # From API docs: https://api.ows.us/apidoc/index.html#/md?appKey=console&key=docs%252FResourceStatus
+    0: "Deleted",
     1: "Running",
-    2: "Stopped",
-    3: "Rebooting",
-    4: "Reinstalling",
-    5: "Destroyed",
-    6: "Resizing",
-    7: "Migrating",
-    8: "Starting",
-    9: "Stopping",
+    3: "Suspend",
+    4: "Down",
+    16: "Creating",
+    106: "Executing",
 }
 
 
@@ -330,9 +327,10 @@ def product_status(client, uuid):
         click.echo(f"Error: Missing INSTANCE_UUID. {UUID_HELP['instance']}", err=True)
         sys.exit(1)
     result = client.product.get_status(uuid)
-    name = STATUS_MAP.get(result.status, f"Unknown ({result.status})")
+    name = STATUS_MAP.get(result.status)
+    status_str = f"{result.status} ({name})" if name else str(result.status)
     click.echo(f"UUID: {uuid}")
-    click.echo(f"Status: {result.status} ({name})")
+    click.echo(f"Status: {status_str}")
 
 
 @product.command("regions")
