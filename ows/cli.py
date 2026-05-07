@@ -153,7 +153,7 @@ def planet_list(client, region, page, size, name, ip, status):
     )
     result = client.planet.list_instances(req)
     for inst in result.list:
-        click.echo(f"{inst.uuid:36s}  {inst.name:20s}  {inst.status_name:8s}  {inst.public_ip:15s}  {inst.flavor_name}")
+        click.echo(f"{inst.uuid:36s}  {inst.name:20s}  {inst.status_name:8s}  {inst.public_ip:15s}  {inst.flavor_name:10s}  {inst.region_uuid}")
     click.echo(f"--- {result.total} total")
 
 
@@ -235,6 +235,19 @@ def product_status(client, uuid):
     """Check resource status."""
     result = client.product.get_status(uuid)
     click.echo(f"Status: {result.status}")
+
+
+@product.command("regions")
+@click.option("--category", default="", help="Category UUID (optional)")
+@handle_api_errors
+@pass_client
+def product_regions(client, category):
+    """List available regions."""
+    result = client.product.get_region(category)
+    for r in result:
+        click.echo(f"{r.name:30s}  city={r.city_code}  id={r.id}")
+        for child in r.children:
+            click.echo(f"  {child.get('name', ''):28s}  city={child.get('city_code', '')}  id={child.get('id', '')}")
 
 
 if __name__ == "__main__":
