@@ -25,6 +25,15 @@ def handle_api_errors(func):
     return wrapper
 
 
+UUID_HELP = {
+    "instance": "Use: ows planet list",
+    "region": "Use: ows product regions",
+    "category": "Use: ows planet types",
+    "image": "Use: ows planet images --region <REGION_UUID>",
+    "flavor": "Use: ows planet flavors --region <REGION_UUID> --category <CATEGORY_UUID>",
+}
+
+
 @click.group()
 @click.option("-c", "--config", default="config.json", help="Config file path")
 @click.pass_context
@@ -56,12 +65,15 @@ def planet_types(client):
 
 
 @planet.command("images")
-@click.option("--region", required=True, help="Region UUID (from: ows product regions)")
+@click.option("--region", required=False, help="Region UUID")
 @click.option("--self", "is_self", default=0, help="Self-owned images (1=yes)")
 @handle_api_errors
 @pass_client
 def planet_images(client, region, is_self):
     """List available images in a region."""
+    if not region:
+        click.echo(f"Error: Missing --region UUID. {UUID_HELP['region']}", err=True)
+        sys.exit(1)
     result = client.planet.get_image_by_region(region, is_self)
     for group in result:
         click.echo(f"{group.name} ({group.icon_type})")
@@ -70,12 +82,18 @@ def planet_images(client, region, is_self):
 
 
 @planet.command("flavors")
-@click.option("--region", required=True, help="Region UUID (from: ows product regions)")
-@click.option("--category", required=True, help="Category UUID (from: ows planet types)")
+@click.option("--region", required=False, help="Region UUID")
+@click.option("--category", required=False, help="Category UUID")
 @handle_api_errors
 @pass_client
 def planet_flavors(client, region, category):
     """List available flavors."""
+    if not region:
+        click.echo(f"Error: Missing --region UUID. {UUID_HELP['region']}", err=True)
+        sys.exit(1)
+    if not category:
+        click.echo(f"Error: Missing --category UUID. {UUID_HELP['category']}", err=True)
+        sys.exit(1)
     result = client.planet.get_flavor_by_add(region, category)
     for f in result:
         cores = str(f.cores).rjust(4)
@@ -84,12 +102,12 @@ def planet_flavors(client, region, category):
 
 
 @planet.command("price")
-@click.option("--region", required=True, help="Region UUID (from: ows product regions)")
-@click.option("--flavor", required=True, help="Flavor UUID (from: ows planet flavors)")
-@click.option("--image", required=True, help="Image UUID (from: ows planet images)")
-@click.option("--system-disk", type=int, required=True)
-@click.option("--billing-model", type=int, required=True, help="1=subscription, 2=pay-as-you-go")
-@click.option("--service-period", type=int, required=True)
+@click.option("--region", required=False, help="Region UUID")
+@click.option("--flavor", required=False, help="Flavor UUID")
+@click.option("--image", required=False, help="Image UUID")
+@click.option("--system-disk", type=int, required=False)
+@click.option("--billing-model", type=int, required=False, help="1=subscription, 2=pay-as-you-go")
+@click.option("--service-period", type=int, required=False)
 @click.option("--coupon-id", type=int, default=0)
 @click.option("--user-time", type=int, default=0)
 @click.option("--data-disk-json", default="[]", help='JSON array of {name,disk_size,disk_type}')
@@ -98,6 +116,24 @@ def planet_flavors(client, region, category):
 def planet_price(client, region, flavor, image, system_disk, billing_model, service_period,
                  coupon_id, user_time, data_disk_json):
     """Calculate configuration price."""
+    if not region:
+        click.echo(f"Error: Missing --region UUID. {UUID_HELP['region']}", err=True)
+        sys.exit(1)
+    if not flavor:
+        click.echo(f"Error: Missing --flavor UUID. {UUID_HELP['flavor']}", err=True)
+        sys.exit(1)
+    if not image:
+        click.echo(f"Error: Missing --image UUID. {UUID_HELP['image']}", err=True)
+        sys.exit(1)
+    if system_disk is None:
+        click.echo("Error: Missing --system-disk <GB>", err=True)
+        sys.exit(1)
+    if billing_model is None:
+        click.echo("Error: Missing --billing-model (1=subscription, 2=pay-as-you-go)", err=True)
+        sys.exit(1)
+    if service_period is None:
+        click.echo("Error: Missing --service-period <N>", err=True)
+        sys.exit(1)
     disks = [DataDisk(**d) for d in json.loads(data_disk_json)]
     req = PriceRequest(
         region_uuid=region, flavor_uuid=flavor, image_uuid=image,
@@ -109,12 +145,12 @@ def planet_price(client, region, flavor, image, system_disk, billing_model, serv
 
 
 @planet.command("create")
-@click.option("--region", required=True, help="Region UUID (from: ows product regions)")
-@click.option("--flavor", required=True, help="Flavor UUID (from: ows planet flavors)")
-@click.option("--image", required=True, help="Image UUID (from: ows planet images)")
-@click.option("--system-disk", type=int, required=True)
-@click.option("--billing-model", type=int, required=True, help="1=subscription, 2=pay-as-you-go")
-@click.option("--service-period", type=int, required=True)
+@click.option("--region", required=False, help="Region UUID")
+@click.option("--flavor", required=False, help="Flavor UUID")
+@click.option("--image", required=False, help="Image UUID")
+@click.option("--system-disk", type=int, required=False)
+@click.option("--billing-model", type=int, required=False, help="1=subscription, 2=pay-as-you-go")
+@click.option("--service-period", type=int, required=False)
 @click.option("--project", default="")
 @click.option("--admin-pass", default="")
 @click.option("--ssh-key", default="")
@@ -127,6 +163,24 @@ def planet_price(client, region, flavor, image, system_disk, billing_model, serv
 def planet_create(client, region, flavor, image, system_disk, billing_model, service_period,
                   project, admin_pass, ssh_key, remark, is_renew, is_backup, data_disk_json):
     """Create a new Planet instance."""
+    if not region:
+        click.echo(f"Error: Missing --region UUID. {UUID_HELP['region']}", err=True)
+        sys.exit(1)
+    if not flavor:
+        click.echo(f"Error: Missing --flavor UUID. {UUID_HELP['flavor']}", err=True)
+        sys.exit(1)
+    if not image:
+        click.echo(f"Error: Missing --image UUID. {UUID_HELP['image']}", err=True)
+        sys.exit(1)
+    if system_disk is None:
+        click.echo("Error: Missing --system-disk <GB>", err=True)
+        sys.exit(1)
+    if billing_model is None:
+        click.echo("Error: Missing --billing-model (1=subscription, 2=pay-as-you-go)", err=True)
+        sys.exit(1)
+    if service_period is None:
+        click.echo("Error: Missing --service-period <N>", err=True)
+        sys.exit(1)
     disks = [DataDisk(**d) for d in json.loads(data_disk_json)]
     req = CreateRequest(
         region_uuid=region, flavor_uuid=flavor, image_uuid=image,
@@ -160,14 +214,15 @@ def planet_list(client, region, page, size, name, ip, status):
 
 
 @planet.command("detail")
-@click.argument("uuid", metavar="INSTANCE_UUID")
+@click.argument("uuid", required=False, metavar="INSTANCE_UUID")
 @click.option("--project", default=None)
 @handle_api_errors
 @pass_client
 def planet_detail(client, uuid, project):
-    """Show instance detail.
-
-    INSTANCE_UUID can be found via: ows planet list"""
+    """Show instance detail."""
+    if not uuid:
+        click.echo(f"Error: Missing INSTANCE_UUID. {UUID_HELP['instance']}", err=True)
+        sys.exit(1)
     inst = client.planet.get_detail(uuid, project)
     fields = [
         ("UUID", inst.uuid), ("Name", inst.name), ("Status", f"{inst.status_name} ({inst.status})"),
@@ -183,36 +238,42 @@ def planet_detail(client, uuid, project):
 
 
 @planet.command("stop")
-@click.argument("uuid", metavar="INSTANCE_UUID")
+@click.argument("uuid", required=False, metavar="INSTANCE_UUID")
 @handle_api_errors
 @pass_client
 def planet_stop(client, uuid):
-    """Stop an instance.
-
-    INSTANCE_UUID can be found via: ows planet list"""
+    """Stop an instance."""
+    if not uuid:
+        click.echo(f"Error: Missing INSTANCE_UUID. {UUID_HELP['instance']}", err=True)
+        sys.exit(1)
     client.planet.stop(uuid)
 
 
 @planet.command("start")
-@click.argument("uuid", metavar="INSTANCE_UUID")
+@click.argument("uuid", required=False, metavar="INSTANCE_UUID")
 @handle_api_errors
 @pass_client
 def planet_start(client, uuid):
-    """Start an instance.
-
-    INSTANCE_UUID can be found via: ows planet list"""
+    """Start an instance."""
+    if not uuid:
+        click.echo(f"Error: Missing INSTANCE_UUID. {UUID_HELP['instance']}", err=True)
+        sys.exit(1)
     client.planet.start(uuid)
 
 
 @planet.command("reboot")
-@click.argument("uuid", metavar="INSTANCE_UUID")
-@click.argument("reboot_type", type=int)
+@click.argument("uuid", required=False, metavar="INSTANCE_UUID")
+@click.argument("reboot_type", type=int, required=False)
 @handle_api_errors
 @pass_client
 def planet_reboot(client, uuid, reboot_type):
-    """Reboot an instance.
-
-    INSTANCE_UUID can be found via: ows planet list"""
+    """Reboot an instance."""
+    if not uuid:
+        click.echo(f"Error: Missing INSTANCE_UUID. {UUID_HELP['instance']}", err=True)
+        sys.exit(1)
+    if reboot_type is None:
+        click.echo("Error: Missing reboot_type argument.", err=True)
+        sys.exit(1)
     client.planet.reboot(uuid, reboot_type)
     click.echo(f"Rebooting: {uuid}")
 
@@ -226,24 +287,26 @@ def product():
 
 
 @product.command("free")
-@click.argument("uuid", metavar="INSTANCE_UUID")
+@click.argument("uuid", required=False, metavar="INSTANCE_UUID")
 @handle_api_errors
 @pass_client
 def product_free(client, uuid):
-    """Destroy (free) a resource.
-
-    INSTANCE_UUID can be found via: ows planet list"""
+    """Destroy (free) a resource."""
+    if not uuid:
+        click.echo(f"Error: Missing INSTANCE_UUID. {UUID_HELP['instance']}", err=True)
+        sys.exit(1)
     client.product.free(uuid)
 
 
 @product.command("status")
-@click.argument("uuid", metavar="INSTANCE_UUID")
+@click.argument("uuid", required=False, metavar="INSTANCE_UUID")
 @handle_api_errors
 @pass_client
 def product_status(client, uuid):
-    """Check resource status.
-
-    INSTANCE_UUID can be found via: ows planet list"""
+    """Check resource status."""
+    if not uuid:
+        click.echo(f"Error: Missing INSTANCE_UUID. {UUID_HELP['instance']}", err=True)
+        sys.exit(1)
     result = client.product.get_status(uuid)
     click.echo(f"Status: {result.status}")
 
