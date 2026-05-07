@@ -33,6 +33,19 @@ UUID_HELP = {
     "flavor": "Use: ows planet flavors --region <REGION_UUID> --category <CATEGORY_UUID>",
 }
 
+STATUS_MAP = {
+    0: "Creating",
+    1: "Running",
+    2: "Stopped",
+    3: "Rebooting",
+    4: "Reinstalling",
+    5: "Destroyed",
+    6: "Resizing",
+    7: "Migrating",
+    8: "Starting",
+    9: "Stopping",
+}
+
 
 @click.group()
 @click.option("-c", "--config", default="config.json", help="Config file path")
@@ -317,7 +330,9 @@ def product_status(client, uuid):
         click.echo(f"Error: Missing INSTANCE_UUID. {UUID_HELP['instance']}", err=True)
         sys.exit(1)
     result = client.product.get_status(uuid)
-    click.echo(f"Status: {result.status}")
+    name = STATUS_MAP.get(result.status, f"Unknown ({result.status})")
+    click.echo(f"UUID: {uuid}")
+    click.echo(f"Status: {result.status} ({name})")
 
 
 @product.command("regions")
