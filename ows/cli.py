@@ -56,7 +56,7 @@ def planet_types(client):
 
 
 @planet.command("images")
-@click.option("--region", required=True, help="Region UUID")
+@click.option("--region", required=True, help="Region UUID (from: ows product regions)")
 @click.option("--self", "is_self", default=0, help="Self-owned images (1=yes)")
 @handle_api_errors
 @pass_client
@@ -70,8 +70,8 @@ def planet_images(client, region, is_self):
 
 
 @planet.command("flavors")
-@click.option("--region", required=True, help="Region UUID")
-@click.option("--category", required=True, help="Category UUID")
+@click.option("--region", required=True, help="Region UUID (from: ows product regions)")
+@click.option("--category", required=True, help="Category UUID (from: ows planet types)")
 @handle_api_errors
 @pass_client
 def planet_flavors(client, region, category):
@@ -84,11 +84,11 @@ def planet_flavors(client, region, category):
 
 
 @planet.command("price")
-@click.option("--region", required=True)
-@click.option("--flavor", required=True)
-@click.option("--image", required=True)
+@click.option("--region", required=True, help="Region UUID (from: ows product regions)")
+@click.option("--flavor", required=True, help="Flavor UUID (from: ows planet flavors)")
+@click.option("--image", required=True, help="Image UUID (from: ows planet images)")
 @click.option("--system-disk", type=int, required=True)
-@click.option("--billing-model", type=int, required=True)
+@click.option("--billing-model", type=int, required=True, help="1=subscription, 2=pay-as-you-go")
 @click.option("--service-period", type=int, required=True)
 @click.option("--coupon-id", type=int, default=0)
 @click.option("--user-time", type=int, default=0)
@@ -109,11 +109,11 @@ def planet_price(client, region, flavor, image, system_disk, billing_model, serv
 
 
 @planet.command("create")
-@click.option("--region", required=True)
-@click.option("--flavor", required=True)
-@click.option("--image", required=True)
+@click.option("--region", required=True, help="Region UUID (from: ows product regions)")
+@click.option("--flavor", required=True, help="Flavor UUID (from: ows planet flavors)")
+@click.option("--image", required=True, help="Image UUID (from: ows planet images)")
 @click.option("--system-disk", type=int, required=True)
-@click.option("--billing-model", type=int, required=True)
+@click.option("--billing-model", type=int, required=True, help="1=subscription, 2=pay-as-you-go")
 @click.option("--service-period", type=int, required=True)
 @click.option("--project", default="")
 @click.option("--admin-pass", default="")
@@ -139,7 +139,7 @@ def planet_create(client, region, flavor, image, system_disk, billing_model, ser
 
 
 @planet.command("list")
-@click.option("--region", default="")
+@click.option("--region", default="", help="Filter by region UUID (from: ows product regions)")
 @click.option("--page", type=int, default=1)
 @click.option("--size", type=int, default=20)
 @click.option("--name", default="")
@@ -160,12 +160,14 @@ def planet_list(client, region, page, size, name, ip, status):
 
 
 @planet.command("detail")
-@click.argument("uuid")
+@click.argument("uuid", metavar="INSTANCE_UUID")
 @click.option("--project", default=None)
 @handle_api_errors
 @pass_client
 def planet_detail(client, uuid, project):
-    """Show instance detail."""
+    """Show instance detail.
+
+    INSTANCE_UUID can be found via: ows planet list"""
     inst = client.planet.get_detail(uuid, project)
     fields = [
         ("UUID", inst.uuid), ("Name", inst.name), ("Status", f"{inst.status_name} ({inst.status})"),
@@ -181,32 +183,36 @@ def planet_detail(client, uuid, project):
 
 
 @planet.command("stop")
-@click.argument("uuid")
+@click.argument("uuid", metavar="INSTANCE_UUID")
 @handle_api_errors
 @pass_client
 def planet_stop(client, uuid):
-    """Stop an instance."""
+    """Stop an instance.
+
+    INSTANCE_UUID can be found via: ows planet list"""
     client.planet.stop(uuid)
-    click.echo(f"Stopped: {uuid}")
 
 
 @planet.command("start")
-@click.argument("uuid")
+@click.argument("uuid", metavar="INSTANCE_UUID")
 @handle_api_errors
 @pass_client
 def planet_start(client, uuid):
-    """Start an instance."""
+    """Start an instance.
+
+    INSTANCE_UUID can be found via: ows planet list"""
     client.planet.start(uuid)
-    click.echo(f"Started: {uuid}")
 
 
 @planet.command("reboot")
-@click.argument("uuid")
+@click.argument("uuid", metavar="INSTANCE_UUID")
 @click.argument("reboot_type", type=int)
 @handle_api_errors
 @pass_client
 def planet_reboot(client, uuid, reboot_type):
-    """Reboot an instance."""
+    """Reboot an instance.
+
+    INSTANCE_UUID can be found via: ows planet list"""
     client.planet.reboot(uuid, reboot_type)
     click.echo(f"Rebooting: {uuid}")
 
@@ -220,21 +226,24 @@ def product():
 
 
 @product.command("free")
-@click.argument("uuid")
+@click.argument("uuid", metavar="INSTANCE_UUID")
 @handle_api_errors
 @pass_client
 def product_free(client, uuid):
-    """Destroy (free) a resource."""
+    """Destroy (free) a resource.
+
+    INSTANCE_UUID can be found via: ows planet list"""
     client.product.free(uuid)
-    click.echo(f"Freed: {uuid}")
 
 
 @product.command("status")
-@click.argument("uuid")
+@click.argument("uuid", metavar="INSTANCE_UUID")
 @handle_api_errors
 @pass_client
 def product_status(client, uuid):
-    """Check resource status."""
+    """Check resource status.
+
+    INSTANCE_UUID can be found via: ows planet list"""
     result = client.product.get_status(uuid)
     click.echo(f"Status: {result.status}")
 
