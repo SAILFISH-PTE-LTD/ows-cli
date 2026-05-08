@@ -389,8 +389,8 @@ def planet_create(client, region, flavor_type, image_type, flavor, image, system
     """Create a new Planet instance."""
     if not region:
         _show_error("Missing --region (city_code/name/UUID)",
-                    "ows planet create --region <CODE|NAME|UUID>",
-                    _hint("region"))
+                    "ows planet create --region <CODE|NAME|UUID> [--deploy]",
+                    "region → ows product regions\n      --deploy → add --deploy to deploy to MetroVPN after creation")
     region_uuid = resolve_region(client, region)
     if not region_uuid:
         _show_error(f"Unknown region: {region}", "ows planet create --region <CODE|NAME|UUID>")
