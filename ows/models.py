@@ -120,6 +120,7 @@ class CreateRequest:
     billing_model: int
     service_period: int
     project_uuid: str = ""
+    name: str = ""
     data_disk: List[DataDisk] = field(default_factory=list)
     remark: str = ""
     adminPass: str = ""
@@ -216,6 +217,7 @@ class InstanceDetail:
     system_type: str = ""
     city_name: str = ""
     city_code: str = ""
+    public_ip: str = ""
     status: int = 0
     status_name: str = ""
     create_time: str = ""
@@ -230,3 +232,38 @@ class InstanceDetail:
     subnet: list = field(default_factory=list)
     security_group: list = field(default_factory=list)
     app_market: list = field(default_factory=list)
+
+
+# --- Deploy ---
+
+@dataclass
+class VpsLoginInfo:
+    vps_id: str
+    password: str
+    ip: str
+    os: str = "ubuntu 20.04"
+    vps_type: str = "1C-2G"
+    user: str = "root"
+    port: str = "22"
+
+
+@dataclass
+class DeployRequest:
+    region_id: str
+    vcpus: int
+    memory: int
+    disk: int
+    vps_infos: List[VpsLoginInfo]
+    vps_brand_id: str = "ows.us"
+    quota_type: int = 0
+    quota: int = 2000
+    bandwidth: int = 100
+    group_id: str = "Vip HighSpeed Server"
+    tag: str = "metro"
+
+
+@dataclass
+class DeployResult:
+    code: int
+    msg: str = ""
+    ip: str = ""
