@@ -4,23 +4,27 @@ from ows.config import Config
 from ows.errors import APIError, AuthError, NetworkError
 from ows.api.planet import PlanetAPI
 from ows.api.product import ProductAPI
+from ows.deploy import DeployClient
 
 
 class OwsClient:
     BASE_URL = "https://api.ows.us"
 
-    def __init__(self, auth: AuthSession, timeout: int = 30, max_retries: int = 1):
+    def __init__(self, auth: AuthSession, timeout: int = 30, max_retries: int = 1,
+                 sos_token: str = None):
         self.auth = auth
         self.timeout = timeout
         self.max_retries = max_retries
         self.planet = PlanetAPI(self)
         self.product = ProductAPI(self)
+        self.deploy = DeployClient(sos_token) if sos_token else None
 
     @classmethod
     def from_config(cls, path: str = "config.json", **kwargs) -> "OwsClient":
         config = Config.load(path)
         auth = AuthSession(config)
-        return cls(auth, **kwargs)
+        sos_token = kwargs.pop("sos_token", config.sos_token) or None
+        return cls(auth, sos_token=sos_token, **kwargs)
 
     def post(self, path: str, data: dict = None) -> dict:
         return self._request("POST", path, json=data or None, params=None)
