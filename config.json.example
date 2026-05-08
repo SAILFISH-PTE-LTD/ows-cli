@@ -1,1 +1,5 @@
-{"app_id": "your_app_id", "app_secret": "your_app_secret"}
+{
+  "app_id": "your_app_id",
+  "app_secret": "your_app_secret",
+  "sos_token": ""
+}
