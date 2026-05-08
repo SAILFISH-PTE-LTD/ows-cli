@@ -149,10 +149,6 @@ def resolve_instance(client, value: str):
     result = client.planet.list_instances(ListRequest(name=v, page_size=1))
     if result.list:
         return result.list[0]
-    # Partial name match
-    result = client.planet.list_instances(ListRequest(keyword=v, page_size=1))
-    if result.list:
-        return result.list[0]
     return None
 
 
