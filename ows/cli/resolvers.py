@@ -129,23 +129,39 @@ def resolve_instance(client, value: str):
     if not value:
         return None
     v = value.strip()
-    # Try exact name match
+
+    # Looks like an IP? Do client-side exact match to avoid fuzzy API behavior
+    if _looks_like_ip(v):
+        result = client.planet.list_instances(ListRequest(page_num=1, page_size=200))
+        for inst in result.list:
+            if inst.public_ip == v:
+                return inst
+        return None
+
+    # Looks like a UUID? Verify directly
+    if _looks_like_uuid(v):
+        try:
+            return client.planet.get_detail(v)
+        except Exception:
+            return None
+
+    # Otherwise treat as name — exact match via API
     result = client.planet.list_instances(ListRequest(name=v, page_size=1))
     if result.list:
         return result.list[0]
-    # Try IP match
-    result = client.planet.list_instances(ListRequest(ip=v, page_size=1))
-    if result.list:
-        return result.list[0]
-    # Try fuzzy name match (partial)
+    # Partial name match
     result = client.planet.list_instances(ListRequest(keyword=v, page_size=1))
     if result.list:
         return result.list[0]
-    # Fallback: treat as UUID, verify via get_detail
-    try:
-        return client.planet.get_detail(v)
-    except Exception:
-        return None
+    return None
+
+
+def _looks_like_ip(value: str) -> bool:
+    return "." in value and len(value) <= 21 and all(p.isdigit() for p in value.split(".") if p)
+
+
+def _looks_like_uuid(value: str) -> bool:
+    return "-" in value and len(value) >= 32
 
 
 def resolve_project(client, value: str = "") -> str:
