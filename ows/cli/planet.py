@@ -662,7 +662,7 @@ def planet_reboot(client, instance, reboot_type):
 @click.option("--region-id", default="")
 @click.option("--vcpus", type=int, default=None)
 @click.option("--memory", type=int, default=None)
-@click.option("--disk", type=int, default=None)
+@click.option("--disk", type=int, default=40, show_default=True, help="System disk size in GB")
 @click.option("--quota-type", type=int, default=0)
 @click.option("--quota", type=int, default=2000)
 @click.option("--bandwidth", type=int, default=100)
@@ -731,16 +731,11 @@ def planet_deploy(client, instance, sos_token, password, vps_id, os, vps_type, u
         _show_error("vps_infos cannot exceed 5 items", "")
 
     # Build DeployRequest
-    if disk is None and not (inst.storage and str(inst.storage).strip()):
-        _show_error(
-            "instance storage is empty, please provide --disk (system disk size in GB)",
-            "ows planet deploy <UUID> --password PWD --disk 40"
-        )
     req = DeployRequest(
         region_id=region_id,
         vcpus=vcpus if vcpus is not None else _coerce_int(inst.cores, "cores"),
         memory=memory if memory is not None else _coerce_int(inst.memory, "memory"),
-        disk=disk if disk is not None else _coerce_int(inst.storage, "storage"),
+        disk=disk,
         vps_infos=vps_infos,
         vps_brand_id=brand_id,
         quota_type=quota_type,
