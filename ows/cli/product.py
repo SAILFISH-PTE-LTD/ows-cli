@@ -2,6 +2,7 @@
 import click
 
 from ows.cli import _hint, _show_error, handle_api_errors, pass_client, STATUS_MAP, json_output
+from ows.cli.resolvers import resolve_instance
 
 
 @click.group()
@@ -11,43 +12,39 @@ def product():
 
 
 @product.command("free")
-@click.argument("uuid", required=False, metavar="INSTANCE_UUID")
-@click.option("--ip", default="", help="Free instance by public IP instead of UUID")
+@click.argument("instance", required=False, metavar="UUID|NAME|IP")
 @handle_api_errors
 @pass_client
-def product_free(client, uuid, ip):
-    """Destroy (free) a resource by UUID or IP."""
-    if ip:
-        from ows.models import ListRequest
-        result = client.planet.list_instances(ListRequest(page_num=1, page_size=200))
-        for inst in result.list:
-            if inst.public_ip == ip:
-                uuid = inst.uuid
-                break
-        if not uuid:
-            _show_error(f"No instance found with IP {ip}", "ows product free --ip <IP>")
-    if not uuid:
-        _show_error("Missing INSTANCE_UUID or --ip", "ows product free <INSTANCE_UUID>  or  ows product free --ip <IP>", _hint("instance"))
-    client.product.free(uuid)
-    if json_output({"ok": True, "action": "free", "uuid": uuid}):
+def product_free(client, instance):
+    """Destroy (free) a resource by UUID, name, or IP."""
+    if not instance:
+        _show_error("Missing UUID|NAME|IP", "ows product free <UUID|NAME|IP>", _hint("instance"))
+    inst = resolve_instance(client, instance)
+    if not inst:
+        _show_error(f"No instance found: {instance}", "ows product free <UUID|NAME|IP>")
+    client.product.free(inst.uuid)
+    if json_output({"ok": True, "action": "free", "uuid": inst.uuid}):
         return
-    click.echo(f"Destroyed: {uuid}")
+    click.echo(f"Destroyed: {inst.uuid}")
 
 
 @product.command("status")
-@click.argument("uuid", required=False, metavar="INSTANCE_UUID")
+@click.argument("instance", required=False, metavar="UUID|NAME|IP")
 @handle_api_errors
 @pass_client
-def product_status(client, uuid):
-    """Check resource status."""
-    if not uuid:
-        _show_error("Missing INSTANCE_UUID", "ows product status <INSTANCE_UUID>", _hint("instance"))
-    result = client.product.get_status(uuid)
+def product_status(client, instance):
+    """Check resource status by UUID, name, or IP."""
+    if not instance:
+        _show_error("Missing UUID|NAME|IP", "ows product status <UUID|NAME|IP>", _hint("instance"))
+    inst = resolve_instance(client, instance)
+    if not inst:
+        _show_error(f"No instance found: {instance}", "ows product status <UUID|NAME|IP>")
+    result = client.product.get_status(inst.uuid)
     name = STATUS_MAP.get(result.status)
-    if json_output({"uuid": uuid, "status": result.status, "status_name": name}):
+    if json_output({"uuid": inst.uuid, "status": result.status, "status_name": name}):
         return
     status_str = f"{result.status} ({name})" if name else str(result.status)
-    click.echo(f"UUID: {uuid}")
+    click.echo(f"UUID: {inst.uuid}")
     click.echo(f"Status: {status_str}")
 
 

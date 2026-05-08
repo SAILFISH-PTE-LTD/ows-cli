@@ -2,14 +2,20 @@
 import json
 import random
 import string
+import sys
 import time
 
 import click
 
 from ows.cli import _hint, _show_error, handle_api_errors, pass_client, json_output
+from ows.cli.resolvers import (
+    CATEGORY_TYPES, FLAVOR_TYPES, IMAGE_TYPES,
+    CATEGORY_DEFAULT, FLAVOR_DEFAULT, IMAGE_DEFAULT,
+    CATEGORY_NAME_TO_TYPE, FLAVOR_NAME_TO_TYPE, IMAGE_NAME_TO_TYPE,
+    resolve_region, resolve_category, resolve_flavor, resolve_image, resolve_instance,
+    resolve_project,
+)
 from ows.errors import APIError
-import sys
-
 from ows.deploy import DeployClient, REGION_MAP
 from ows.models import CreateRequest, DataDisk, DeployRequest, ListRequest, PriceRequest, VpsLoginInfo
 
@@ -178,69 +184,88 @@ def planet():
 def planet_types(client):
     """List product categories."""
     result = client.planet.get_planet_type()
-    if json_output([{"category_uuid": t.category_uuid, "name": t.name, "status": t.status,
-                      "billing_model": t.billing_model} for t in result]):
+    if json_output([{"type": CATEGORY_NAME_TO_TYPE.get(t.name, ""),
+                      "name": t.name, "category_uuid": t.category_uuid,
+                      "status": t.status, "billing_model": t.billing_model} for t in result]):
         return
-    click.echo(f"{'Category UUID':36s}  {'Name':20s}  Status  Billing")
-    click.echo("-" * 80)
+    click.echo(f"{'Type':4s}  {'Name':20s}  {'Category UUID':36s}  Status  Billing")
+    click.echo("-" * 95)
     for t in result:
-        click.echo(f"{t.category_uuid}  {t.name:20s}  {t.status:6d}  {t.billing_model}")
+        type_num = CATEGORY_NAME_TO_TYPE.get(t.name, "?")
+        click.echo(f"{str(type_num):4s}  {t.name:20s}  {t.category_uuid}  {t.status:6d}  {t.billing_model}")
 
 
 @planet.command("images")
-@click.option("--region", required=False, help="Region UUID")
+@click.option("--region", required=False, help="Region (city_code, name, or UUID)")
 @click.option("--self", "is_self", default=0, help="Self-owned images (1=yes)")
 @handle_api_errors
 @pass_client
 def planet_images(client, region, is_self):
     """List available images in a region."""
     if not region:
-        _show_error("Missing --region UUID", "ows planet images --region <REGION_UUID>", _hint("region"))
-    result = client.planet.get_image_by_region(region, is_self)
+        _show_error("Missing --region (city_code/name/UUID)", "ows planet images --region <CODE|NAME|UUID>", _hint("region"))
+    region_uuid = resolve_region(client, region)
+    if not region_uuid:
+        _show_error(f"Unknown region: {region}", "ows planet images --region <CODE|NAME|UUID>",
+                    "ows product regions  (view all regions)")
+    result = client.planet.get_image_by_region(region_uuid, is_self)
     if json_output([{"name": g.name, "icon_type": g.icon_type,
-                      "images": g.images} for g in result]):
+                      "images": [{"type": IMAGE_NAME_TO_TYPE.get(i.get("name", ""), ""),
+                                  "name": i.get("name", ""), "uuid": i.get("uuid", ""),
+                                  "id": i.get("id", "")} for i in g.images]}
+                     for g in result]):
         return
     for group in result:
         click.echo(f"\n{group.name} ({group.icon_type})")
-        click.echo(f"  {'ID':5s}  {'Name':35s}  UUID")
+        click.echo(f"  {'Type':5s}  {'Name':35s}  UUID")
         click.echo(f"  {'-'*5}  {'-'*35}  {'-'*36}")
         for img in group.images:
-            click.echo(f"  {img['id']:5d}  {img['name']:35s}  {img.get('uuid', '')}")
+            type_num = IMAGE_NAME_TO_TYPE.get(img.get("name", ""), "")
+            click.echo(f"  {str(type_num):5s}  {img.get('name', ''):35s}  {img.get('uuid', '')}")
 
 
 @planet.command("flavors")
-@click.option("--region", required=False, help="Region UUID")
-@click.option("--category", required=False, help="Category UUID")
+@click.option("--region", required=False, help="Region (city_code, name, or UUID)")
+@click.option("--category-type", type=int, default=CATEGORY_DEFAULT,
+              help=f"Category type (0=Shared vCPU, 1=Dedicated vCPU, 2=Bare Metal, default={CATEGORY_DEFAULT})")
 @handle_api_errors
 @pass_client
-def planet_flavors(client, region, category):
+def planet_flavors(client, region, category_type):
     """List available flavors."""
     if not region:
-        _show_error("Missing --region UUID",
-                    "ows planet flavors --region <REGION_UUID> --category <CATEGORY_UUID>",
-                    _hint("region", "category"))
-    if not category:
-        _show_error("Missing --category UUID",
-                    "ows planet flavors --region <REGION_UUID> --category <CATEGORY_UUID>",
-                    _hint("region", "category"))
-    result = client.planet.get_flavor_by_add(region, category)
-    if json_output([{"uuid": f.uuid, "name": f.name, "cores": f.cores, "memory": f.memory,
+        _show_error("Missing --region (city_code/name/UUID)",
+                    "ows planet flavors --region <CODE|NAME|UUID>",
+                    _hint("region"))
+    region_uuid = resolve_region(client, region)
+    if not region_uuid:
+        _show_error(f"Unknown region: {region}", "ows planet flavors --region <CODE|NAME|UUID>")
+    types = client.planet.get_planet_type()
+    cat_name = CATEGORY_TYPES.get(category_type, "")
+    cat = next((t for t in types if t.name == cat_name), None)
+    if not cat:
+        _show_error(f"Unknown category type: {category_type}", "")
+    result = client.planet.get_flavor_by_add(region_uuid, cat.category_uuid)
+    if json_output([{"type": FLAVOR_NAME_TO_TYPE.get(f.name, ""), "name": f.name,
+                      "uuid": f.uuid, "cores": f.cores, "memory": f.memory,
                       "h_price": float(str(f.h_price)), "m_price": float(str(f.m_price))}
                      for f in result]):
         return
-    click.echo(f"{'Name':20s}  {'UUID':36s}  Cores  Memory  Price/h     Price/m")
-    click.echo("-" * 100)
+    click.echo(f"{'Type':4s}  {'Name':7s}  {'UUID':36s}  Cores  Memory  Price/h     Price/m")
+    click.echo("-" * 110)
     for f in result:
+        type_num = FLAVOR_NAME_TO_TYPE.get(f.name, "")
         cores = str(f.cores).rjust(4)
         mem = str(f.memory).rjust(6)
-        click.echo(f"{f.name:20s}  {f.uuid}  {cores}  {mem}  "
+        click.echo(f"{str(type_num):4s}  {f.name:7s}  {f.uuid}  {cores}  {mem}  "
                    f"${float(str(f.h_price)):<10.8f}  ${float(str(f.m_price)):<10.2f}")
 
 
 @planet.command("price")
-@click.option("--region", required=False, help="Region UUID")
-@click.option("--flavor", required=False, help="Flavor UUID")
-@click.option("--image", required=False, help="Image UUID")
+@click.option("--region", required=False, help="Region (city_code, name, or UUID)")
+@click.option("--flavor-type", type=int, default=None, help=f"Flavor type (0~8, default={FLAVOR_DEFAULT}=1C-2G)")
+@click.option("--image-type", type=int, default=None, help=f"Image type (0~21, default={IMAGE_DEFAULT}=Ubuntu 20.04)")
+@click.option("--flavor", required=False, help="Flavor UUID or name (overrides --flavor-type)")
+@click.option("--image", required=False, help="Image UUID or name (overrides --image-type)")
 @click.option("--system-disk", type=int, default=40, help="System disk size in GB")
 @click.option("--billing-model", type=int, default=2, help="1=subscription, 2=pay-as-you-go")
 @click.option("--service-period", type=int, default=1,
@@ -250,25 +275,39 @@ def planet_flavors(client, region, category):
 @click.option("--data-disk-json", default="[]", help='JSON array of {name,disk_size,disk_type}')
 @handle_api_errors
 @pass_client
-def planet_price(client, region, flavor, image, system_disk, billing_model, service_period,
-                 coupon_id, user_time, data_disk_json):
+def planet_price(client, region, flavor_type, image_type, flavor, image, system_disk, billing_model,
+                 service_period, coupon_id, user_time, data_disk_json):
     """Calculate configuration price."""
     if not region:
-        _show_error("Missing --region UUID",
-                    "ows planet price --region <REGION_UUID>",
+        _show_error("Missing --region (city_code/name/UUID)",
+                    "ows planet price --region <CODE|NAME|UUID>",
                     _hint("region"))
-    flavor, image, _project = _resolve_defaults(client, region, flavor, image, "")
+    region_uuid = resolve_region(client, region)
+    if not region_uuid:
+        _show_error(f"Unknown region: {region}", "ows planet price --region <CODE|NAME|UUID>")
+
+    # Resolve flavor
     if not flavor:
-        _show_error("Missing --flavor UUID",
-                    "ows planet price --region <REGION_UUID> --flavor <FLAVOR_UUID>",
+        ft = flavor_type if flavor_type is not None else FLAVOR_DEFAULT
+        cat_uuid = resolve_category(client, str(CATEGORY_DEFAULT))
+        from ows.api.planet import PlanetAPI
+        flavor = resolve_flavor(client, region_uuid, cat_uuid, str(ft))
+    # Resolve image
+    if not image:
+        it = image_type if image_type is not None else IMAGE_DEFAULT
+        image = resolve_image(client, region_uuid, str(it))
+
+    if not flavor:
+        _show_error("Missing --flavor-type or --flavor",
+                    "ows planet price --region <REGION> --flavor-type 0 --image-type 0",
                     _hint("region", "flavor", "image"))
     if not image:
-        _show_error("Missing --image UUID",
-                    "ows planet price ... --image <IMAGE_UUID>",
+        _show_error("Missing --image-type or --image",
+                    "ows planet price ... --image-type 0",
                     _hint("region", "flavor", "image"))
     disks = [DataDisk(**d) for d in json.loads(data_disk_json)]
     req = PriceRequest(
-        region_uuid=region, flavor_uuid=flavor, image_uuid=image,
+        region_uuid=region_uuid, flavor_uuid=flavor, image_uuid=image,
         system_disk=system_disk, billing_model=billing_model, service_period=service_period,
         coupon_id=coupon_id, user_time=user_time, data_disk=disks,
     )
@@ -311,9 +350,11 @@ def planet_price(client, region, flavor, image, system_disk, billing_model, serv
 
 
 @planet.command("create")
-@click.option("--region", required=False, help="Region UUID")
-@click.option("--flavor", required=False, help="Flavor UUID")
-@click.option("--image", required=False, help="Image UUID")
+@click.option("--region", required=False, help="Region (city_code, name, or UUID)")
+@click.option("--flavor-type", type=int, default=None, help=f"Flavor type (0~8, default={FLAVOR_DEFAULT}=1C-2G)")
+@click.option("--image-type", type=int, default=None, help=f"Image type (0~21, default={IMAGE_DEFAULT}=Ubuntu 20.04)")
+@click.option("--flavor", required=False, help="Flavor UUID or name (overrides --flavor-type)")
+@click.option("--image", required=False, help="Image UUID or name (overrides --image-type)")
 @click.option("--system-disk", type=int, default=40, help="System disk size in GB")
 @click.option("--billing-model", type=int, default=2, help="1=subscription, 2=pay-as-you-go")
 @click.option("--service-period", type=int, default=1,
@@ -340,28 +381,44 @@ def planet_price(client, region, flavor, image, system_disk, billing_model, serv
 @click.option("--deploy-group-id", default="Vip HighSpeed Server")
 @handle_api_errors
 @pass_client
-def planet_create(client, region, flavor, image, system_disk, billing_model, service_period,
-                  project, name, admin_pass, ssh_key, remark, is_renew, is_backup,
+def planet_create(client, region, flavor_type, image_type, flavor, image, system_disk, billing_model,
+                  service_period, project, name, admin_pass, ssh_key, remark, is_renew, is_backup,
                   data_disk_json, no_wait,
                   deploy, sos_token, deploy_region_id, deploy_os, deploy_type, deploy_user, deploy_port,
                   deploy_quota_type, deploy_quota, deploy_bandwidth, deploy_group_id):
     """Create a new Planet instance."""
     if not region:
-        _show_error("Missing --region UUID",
-                    "ows planet create --region <REGION_UUID>",
+        _show_error("Missing --region (city_code/name/UUID)",
+                    "ows planet create --region <CODE|NAME|UUID>",
                     _hint("region"))
-    flavor, image, project = _resolve_defaults(client, region, flavor, image, project)
+    region_uuid = resolve_region(client, region)
+    if not region_uuid:
+        _show_error(f"Unknown region: {region}", "ows planet create --region <CODE|NAME|UUID>")
+
+    # Resolve flavor
     if not flavor:
-        _show_error("Missing --flavor UUID",
-                    "ows planet create --region <REGION_UUID> --flavor <FLAVOR_UUID>",
+        ft = flavor_type if flavor_type is not None else FLAVOR_DEFAULT
+        cat_uuid = resolve_category(client, str(CATEGORY_DEFAULT))
+        flavor = resolve_flavor(client, region_uuid, cat_uuid, str(ft))
+    # Resolve image
+    if not image:
+        it = image_type if image_type is not None else IMAGE_DEFAULT
+        image = resolve_image(client, region_uuid, str(it))
+
+    if not flavor:
+        _show_error("Missing --flavor-type or --flavor",
+                    "ows planet create --region <REGION> --flavor-type 0 --image-type 0",
                     _hint("region", "flavor", "image"))
     if not image:
-        _show_error("Missing --image UUID",
-                    "ows planet create ... --image <IMAGE_UUID>",
+        _show_error("Missing --image-type or --image",
+                    "ows planet create --region <REGION> --flavor-type 0 --image-type 0",
                     _hint("region", "flavor", "image"))
 
+    if not project:
+        project = resolve_project(client, project)
+
     if not name:
-        city_code = _get_city_code(client, region)
+        city_code = _get_city_code(client, region_uuid)
         suffix = "".join(random.choices(string.ascii_letters + string.digits, k=6))
         name = f"Planet-{city_code}-{suffix}"
         click.echo(f"[default] name: {name}")
@@ -371,7 +428,7 @@ def planet_create(client, region, flavor, image, system_disk, billing_model, ser
         admin_pass = _gen_password()
 
     req = CreateRequest(
-        region_uuid=region, flavor_uuid=flavor, image_uuid=image,
+        region_uuid=region_uuid, flavor_uuid=flavor, image_uuid=image,
         system_disk=system_disk, billing_model=billing_model, service_period=service_period,
         project_uuid=project, adminPass=admin_pass, ssh_key=ssh_key,
         name=name, remark=remark, is_renew=is_renew, is_backup=is_backup,
@@ -394,7 +451,7 @@ def planet_create(client, region, flavor, image, system_disk, billing_model, ser
         return
 
     click.echo("Waiting for provisioning...", nl=False)
-    inst = _poll_instance(client, name, region)
+    inst = _poll_instance(client, name, region_uuid)
     click.echo()
     if inst:
         if json_output({"uuid": inst.uuid, "name": inst.name, "status": inst.status_name,
@@ -469,7 +526,7 @@ def planet_create(client, region, flavor, image, system_disk, billing_model, ser
 
 
 @planet.command("list")
-@click.option("--region", default="", help="Filter by region UUID (from: ows product regions)")
+@click.option("--region", default="", help="Filter by region (city_code, name, or UUID)")
 @click.option("--page", type=int, default=1)
 @click.option("--size", type=int, default=20)
 @click.option("--name", default="")
@@ -479,8 +536,9 @@ def planet_create(client, region, flavor, image, system_disk, billing_model, ser
 @pass_client
 def planet_list(client, region, page, size, name, ip, status):
     """List Planet instances."""
+    region_uuid = resolve_region(client, region) if region else ""
     req = ListRequest(
-        page_num=page, page_size=size, region_uuid=region,
+        page_num=page, page_size=size, region_uuid=region_uuid,
         name=name, ip=ip, status=status,
     )
     result = client.planet.list_instances(req)
@@ -499,84 +557,99 @@ def planet_list(client, region, page, size, name, ip, status):
 
 
 @planet.command("detail")
-@click.argument("uuid", required=False, metavar="INSTANCE_UUID")
+@click.argument("instance", required=False, metavar="UUID|NAME|IP")
 @click.option("--project", default=None)
 @handle_api_errors
 @pass_client
-def planet_detail(client, uuid, project):
-    """Show instance detail."""
-    if not uuid:
-        _show_error("Missing INSTANCE_UUID", "ows planet detail <INSTANCE_UUID>", _hint("instance"))
-    inst = client.planet.get_detail(uuid, project)
-    public_ip = inst.public_port.get("ip", "") if isinstance(inst.public_port, dict) else ""
+def planet_detail(client, instance, project):
+    """Show instance detail by UUID, name, or IP."""
+    if not instance:
+        _show_error("Missing UUID|NAME|IP", "ows planet detail <UUID|NAME|IP>", _hint("instance"))
+    inst = resolve_instance(client, instance)
+    if not inst:
+        _show_error(f"No instance found: {instance}", "ows planet detail <UUID|NAME|IP>")
+
+    detail = _safe_call(client, client.planet.get_detail, inst.uuid)
+    public_ip = getattr(inst, 'public_ip', '') or ""
+    if not public_ip and isinstance(detail.public_port, dict):
+        public_ip = detail.public_port.get('ip', '')
     if json_output({
-        "uuid": inst.uuid, "name": inst.name, "status": inst.status, "status_name": inst.status_name,
-        "city_name": inst.city_name, "region_uuid": inst.region_uuid,
-        "flavor_name": inst.flavor_name, "cores": inst.cores, "memory": inst.memory,
-        "storage": inst.storage, "gpu": inst.gpu,
+        "uuid": detail.uuid, "name": detail.name, "status": detail.status, "status_name": detail.status_name,
+        "city_name": detail.city_name, "region_uuid": detail.region_uuid,
+        "flavor_name": detail.flavor_name, "cores": detail.cores, "memory": detail.memory,
+        "storage": detail.storage, "gpu": detail.gpu,
         "public_ip": public_ip,
-        "create_time": inst.create_time, "end_time": inst.end_time,
-        "image_uuid": inst.image_uuid, "project_uuid": inst.project_uuid,
-        "private_port": inst.private_port, "public_port": inst.public_port,
+        "create_time": detail.create_time, "end_time": detail.end_time,
+        "image_uuid": detail.image_uuid, "project_uuid": detail.project_uuid,
+        "private_port": detail.private_port, "public_port": detail.public_port,
     }):
         return
     fields = [
-        ("UUID", inst.uuid), ("Name", inst.name), ("Status", f"{inst.status_name} ({inst.status})"),
-        ("Region", f"{inst.city_name} ({inst.region_uuid})"),
-        ("Flavor", inst.flavor_name), ("Cores", inst.cores), ("Memory", inst.memory),
-        ("Storage", inst.storage), ("GPU", inst.gpu or "none"),
+        ("UUID", detail.uuid), ("Name", detail.name), ("Status", f"{detail.status_name} ({detail.status})"),
+        ("Region", f"{detail.city_name} ({detail.region_uuid})"),
+        ("Flavor", detail.flavor_name), ("Cores", detail.cores), ("Memory", detail.memory),
+        ("Storage", detail.storage), ("GPU", detail.gpu or "none"),
         ("Public IP", public_ip or "(none)"),
-        ("Created", inst.create_time), ("Expires", inst.end_time),
-        ("Image", inst.image_uuid), ("Project", inst.project_uuid),
-        ("Ports", f"private={inst.private_port}, public={inst.public_port}"),
+        ("Created", detail.create_time), ("Expires", detail.end_time),
+        ("Image", detail.image_uuid), ("Project", detail.project_uuid),
+        ("Ports", f"private={detail.private_port}, public={detail.public_port}"),
     ]
     for label, value in fields:
         click.echo(f"{label:12s}: {value}")
 
 
 @planet.command("stop")
-@click.argument("uuid", required=False, metavar="INSTANCE_UUID")
+@click.argument("instance", required=False, metavar="UUID|NAME|IP")
 @handle_api_errors
 @pass_client
-def planet_stop(client, uuid):
-    """Stop an instance."""
-    if not uuid:
-        _show_error("Missing INSTANCE_UUID", "ows planet stop <INSTANCE_UUID>", _hint("instance"))
-    client.planet.stop(uuid)
-    json_output({"ok": True, "action": "stop", "uuid": uuid})
+def planet_stop(client, instance):
+    """Stop an instance by UUID, name, or IP."""
+    if not instance:
+        _show_error("Missing UUID|NAME|IP", "ows planet stop <UUID|NAME|IP>", _hint("instance"))
+    inst = resolve_instance(client, instance)
+    if not inst:
+        _show_error(f"No instance found: {instance}", "ows planet stop <UUID|NAME|IP>")
+    client.planet.stop(inst.uuid)
+    json_output({"ok": True, "action": "stop", "uuid": inst.uuid})
 
 
 @planet.command("start")
-@click.argument("uuid", required=False, metavar="INSTANCE_UUID")
+@click.argument("instance", required=False, metavar="UUID|NAME|IP")
 @handle_api_errors
 @pass_client
-def planet_start(client, uuid):
-    """Start an instance."""
-    if not uuid:
-        _show_error("Missing INSTANCE_UUID", "ows planet start <INSTANCE_UUID>", _hint("instance"))
-    client.planet.start(uuid)
-    json_output({"ok": True, "action": "start", "uuid": uuid})
+def planet_start(client, instance):
+    """Start an instance by UUID, name, or IP."""
+    if not instance:
+        _show_error("Missing UUID|NAME|IP", "ows planet start <UUID|NAME|IP>", _hint("instance"))
+    inst = resolve_instance(client, instance)
+    if not inst:
+        _show_error(f"No instance found: {instance}", "ows planet start <UUID|NAME|IP>")
+    client.planet.start(inst.uuid)
+    json_output({"ok": True, "action": "start", "uuid": inst.uuid})
 
 
 @planet.command("reboot")
-@click.argument("uuid", required=False, metavar="INSTANCE_UUID")
+@click.argument("instance", required=False, metavar="UUID|NAME|IP")
 @click.argument("reboot_type", type=int, required=False)
 @handle_api_errors
 @pass_client
-def planet_reboot(client, uuid, reboot_type):
-    """Reboot an instance."""
-    if not uuid:
-        _show_error("Missing INSTANCE_UUID", "ows planet reboot <INSTANCE_UUID> <REBOOT_TYPE>",
+def planet_reboot(client, instance, reboot_type):
+    """Reboot an instance by UUID, name, or IP."""
+    if not instance:
+        _show_error("Missing UUID|NAME|IP", "ows planet reboot <UUID|NAME|IP> <REBOOT_TYPE>",
                     _hint("instance"))
     if reboot_type is None:
-        _show_error("Missing REBOOT_TYPE", "ows planet reboot <INSTANCE_UUID> <REBOOT_TYPE>")
-    client.planet.reboot(uuid, reboot_type)
-    json_output({"ok": True, "action": "reboot", "uuid": uuid})
-    click.echo(f"Rebooting: {uuid}")
+        _show_error("Missing REBOOT_TYPE", "ows planet reboot <UUID|NAME|IP> <REBOOT_TYPE>")
+    inst = resolve_instance(client, instance)
+    if not inst:
+        _show_error(f"No instance found: {instance}", "ows planet reboot <UUID|NAME|IP> <REBOOT_TYPE>")
+    client.planet.reboot(inst.uuid, reboot_type)
+    json_output({"ok": True, "action": "reboot", "uuid": inst.uuid})
+    click.echo(f"Rebooting: {inst.uuid}")
 
 
 @planet.command("deploy")
-@click.argument("uuid", required=False, metavar="INSTANCE_UUID")
+@click.argument("instance", required=False, metavar="UUID|NAME|IP")
 @click.option("--sos-token", default="", help="sos_token from dashboard.metrovpn.xyz")
 @click.option("--password", default="", help="VPS login password (required)")
 @click.option("--vps-id", default="")
@@ -597,14 +670,20 @@ def planet_reboot(client, uuid, reboot_type):
 @click.option("--vps-infos-json", default="", help="JSON array to override vps_infos")
 @handle_api_errors
 @pass_client
-def planet_deploy(client, uuid, sos_token, password, vps_id, os, vps_type, user, ip, port,
+def planet_deploy(client, instance, sos_token, password, vps_id, os, vps_type, user, ip, port,
                   brand_id, region_id, vcpus, memory, disk, quota_type, quota, bandwidth,
                   group_id, vps_infos_json):
-    """Deploy a Planet instance to MetroVPN."""
-    if not uuid:
-        _show_error("Missing INSTANCE_UUID", "ows planet deploy <INSTANCE_UUID>", _hint("instance"))
+    """Deploy a Planet instance by UUID, name, or IP."""
+    if not instance:
+        _show_error("Missing UUID|NAME|IP", "ows planet deploy <UUID|NAME|IP>", _hint("instance"))
     if not password:
-        _show_error("Missing --password", "ows planet deploy <UUID> --password PWD")
+        _show_error("Missing --password", "ows planet deploy <UUID|NAME|IP> --password PWD")
+
+    inst = resolve_instance(client, instance)
+    if not inst:
+        _show_error(f"No instance found: {instance}", "ows planet deploy <UUID|NAME|IP>")
+
+    uuid = inst.uuid
 
     # Get instance detail
     inst = _safe_call(client, client.planet.get_detail, uuid)
