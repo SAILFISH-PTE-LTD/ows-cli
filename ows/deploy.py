@@ -138,8 +138,7 @@ class DeployClient:
         return f"form_data={urllib.parse.quote(encoded, safe='')}"
 
     def _parse_response(self, resp) -> DeployResult:
-        outer = resp.json()
-        inner = json.loads(base64.b64decode(outer["data"]))
+        inner = json.loads(base64.b64decode(resp.text))
         inner_data = inner.get("data", {})
         if not isinstance(inner_data, dict):
             inner_data = {}
