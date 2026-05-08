@@ -606,7 +606,7 @@ def planet_deploy(client, uuid, sos_token, password, vps_id, os, vps_type, user,
     if not password:
         _show_error("Missing --password", "ows planet deploy <UUID> --password PWD")
 
-    # Get instance: use detail for cores/memory/city/status, use list for public_ip
+    # Get instance detail
     inst = _safe_call(client, client.planet.get_detail, uuid)
     if inst.status != 1:
         _show_error(
@@ -614,15 +614,7 @@ def planet_deploy(client, uuid, sos_token, password, vps_id, os, vps_type, user,
             "ows planet deploy <UUID> --password PWD"
         )
 
-    public_ip = ""
-
-    # Try to get IP from list_instances
-    list_result = _safe_call(client, client.planet.list_instances,
-                             ListRequest(page_num=1, page_size=200))
-    for entry in list_result.list:
-        if entry.uuid == uuid:
-            public_ip = entry.public_ip
-            break
+    public_ip = inst.public_port.get("ip", "") if isinstance(inst.public_port, dict) else ""
 
     if not ip:
         ip = public_ip
@@ -630,7 +622,7 @@ def planet_deploy(client, uuid, sos_token, password, vps_id, os, vps_type, user,
     if not ip:
         _show_error(
             "Instance has no public IP yet. Wait for creation to complete.",
-            f"Check with: ows planet list"
+            f"Check with: ows planet detail {uuid}"
         )
 
     # Resolve region_id
