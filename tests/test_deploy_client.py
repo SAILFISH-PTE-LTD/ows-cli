@@ -62,7 +62,7 @@ class TestDeployClient:
     def test_create_deploy_success(self, mock_post):
         client = self._make_client()
         req = self._make_req()
-        inner = {"code": 200, "data": {"msg": "success", "ip": ""}}
+        inner = {"code": 200, "msg": "success", "data": "abc123"}
         encoded = base64.b64encode(json.dumps(inner).encode()).decode()
         mock_resp = MagicMock()
         mock_resp.text = encoded
@@ -76,7 +76,7 @@ class TestDeployClient:
     def test_create_deploy_failure(self, mock_post):
         client = self._make_client()
         req = self._make_req()
-        inner = {"code": 400, "data": {"msg": "bad request", "ip": "1.2.3.4"}}
+        inner = {"code": 400, "msg": "bad request", "data": {"ip": "1.2.3.4"}}
         encoded = base64.b64encode(json.dumps(inner).encode()).decode()
         mock_resp = MagicMock()
         mock_resp.text = encoded
@@ -92,12 +92,12 @@ class TestDeployClient:
         client = self._make_client()
         req = self._make_req()
         msg_text = "Too many requests, try again after 1 seconds"
-        inner1 = {"code": 400, "data": {"msg": msg_text, "ip": ""}}
+        inner1 = {"code": 400, "msg": msg_text, "data": {"ip": ""}}
         encoded1 = base64.b64encode(json.dumps(inner1).encode()).decode()
         resp1 = MagicMock()
         resp1.text = encoded1
         # Second call: success
-        inner2 = {"code": 200, "data": {"msg": "ok", "ip": ""}}
+        inner2 = {"code": 200, "msg": "ok", "data": "abc"}
         encoded2 = base64.b64encode(json.dumps(inner2).encode()).decode()
         resp2 = MagicMock()
         resp2.text = encoded2

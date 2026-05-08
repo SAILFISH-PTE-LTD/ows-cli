@@ -144,6 +144,6 @@ class DeployClient:
             inner_data = {}
         return DeployResult(
             code=inner.get("code", 0),
-            msg=inner_data.get("msg", ""),
+            msg=inner.get("msg") or inner_data.get("msg", ""),
             ip=inner_data.get("ip", ""),
         )
