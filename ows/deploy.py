@@ -73,6 +73,7 @@ REGION_MAP = {
     "Strasbourg": "Strasbourg (France)",
     "Sydney": "Sydney (Australia)",
     "Taipei": "Taipei (ROC(TW))",
+    "TaiPei": "Taipei (ROC(TW))",
     "Tel Aviv": "Tel Aviv (Israel)",
     "Tokyo": "Tokyo (Japan)",
     "Toronto": "Toronto (Canada)",
