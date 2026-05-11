@@ -4,6 +4,7 @@ from ows.config import Config
 from ows.errors import APIError, AuthError, NetworkError
 from ows.api.planet import PlanetAPI
 from ows.api.product import ProductAPI
+from ows.api.order import OrderAPI
 from ows.deploy import DeployClient
 
 
@@ -17,6 +18,7 @@ class OwsClient:
         self.max_retries = max_retries
         self.planet = PlanetAPI(self)
         self.product = ProductAPI(self)
+        self.order = OrderAPI(self)
         self.deploy = DeployClient(sos_token) if sos_token else None
 
     @classmethod

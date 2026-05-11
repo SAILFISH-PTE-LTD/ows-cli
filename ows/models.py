@@ -267,3 +267,40 @@ class DeployResult:
     code: int
     msg: str = ""
     ip: str = ""
+
+
+# --- Order ---
+
+@dataclass
+class Order:
+    id: int = 0
+    uid: int = 0
+    order_sn: str = ""
+    payid: int = 0
+    status: int = 0
+    type: int = 0
+    product_type: int = 0
+    product_info: str = ""
+    original_price: float = 0.0
+    amount: float = 0.0
+    discount: float = 0.0
+    ctime: str = ""
+    utime: str = ""
+    create_time: int = 0
+    update_time: int = 0
+    delete_time: int = 0
+    remark: str = ""
+    boss_remark: str = ""
+
+
+@dataclass
+class OrderListRequest:
+    page_num: int = 1
+    page_size: int = 10
+    status: int = 0
+    product_type: int = 0
+    begin_date: str = ""
+    end_date: str = ""
+    is_renew: int = 0
+    ctime_sort: int = 0
+    etime_sort: int = 0

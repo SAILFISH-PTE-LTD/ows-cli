@@ -85,9 +85,11 @@ def cli(ctx, config, as_json):
 # Register sub-command groups
 from ows.cli.planet import planet  # noqa: E402
 from ows.cli.product import product  # noqa: E402
+from ows.cli.order import order  # noqa: E402
 
 cli.add_command(planet)
 cli.add_command(product)
+cli.add_command(order)
 
 # Register deploy as top-level command (alias)
 from ows.cli.planet import planet_deploy  # noqa: E402
