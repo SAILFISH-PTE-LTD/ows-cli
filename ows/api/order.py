@@ -7,10 +7,10 @@ from ows.models import Order, OrderListRequest, ListResult, _from_dict
 
 
 ORDER_STATUS = {
-    0: "Unpaid",
+    0: "Not Paid",
     1: "Paid",
-    2: "Cancelled",
-    3: "Refunded",
+    2: "Expired",
+    3: "Deleted",
 }
 
 ORDER_TYPE = {

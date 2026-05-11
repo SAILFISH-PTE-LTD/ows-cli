@@ -28,6 +28,10 @@
 | app_market_uuid | string | 否 | 应用市场镜像 |
 | app_market_base_data | string | 否 | 应用配置数据 |
 
+**响应:** `{"code": 200, "data": [], "message": "success"}`
+
+> 创建成功但 `data` 返回空数组 `[]`，UUID 不立即返回。创建是异步的，之后需通过 `list` 获取实例 UUID。
+
 ---
 
 ## POST /console/planet/list — 实例列表

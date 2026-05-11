@@ -12,14 +12,14 @@ def order():
 
 
 @order.command("list")
-@click.option("--status", type=int, default=0, help="Order status (0=Unpaid 1=Paid 2=Cancelled 3=Refunded)")
-@click.option("--product-type", "product_type", type=int, default=0, help="Product type (1=ECS 2=BareMetal)")
+@click.option("--status", type=int, default=0, help="0=Not Paid 1=Paid 2=Expired 3=Deleted")
+@click.option("--product-type", "product_type", type=int, default=0, help="Product type")
 @click.option("--page", "page_num", type=int, default=1, help="Page number")
 @click.option("--page-size", "page_size", type=int, default=20, help="Items per page")
 @click.option("--begin-date", default="", help="Start date (YYYY-MM-DD)")
 @click.option("--end-date", default="", help="End date (YYYY-MM-DD)")
-@click.option("--sort-ctime", "ctime_sort", type=int, default=0, help="Sort by create time (0=desc 1=asc)")
-@click.option("--sort-etime", "etime_sort", type=int, default=0, help="Sort by end time (0=desc 1=asc)")
+@click.option("--sort-time", "time_sort", type=int, default=0, help="Sort by time")
+@click.option("--sort-price", "price_sort", type=int, default=0, help="Sort by price")
 @pass_client
 @handle_api_errors
 def order_list(client, **kwargs):

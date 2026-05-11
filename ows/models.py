@@ -301,6 +301,5 @@ class OrderListRequest:
     product_type: int = 0
     begin_date: str = ""
     end_date: str = ""
-    is_renew: int = 0
-    ctime_sort: int = 0
-    etime_sort: int = 0
+    time_sort: int = 0
+    price_sort: int = 0

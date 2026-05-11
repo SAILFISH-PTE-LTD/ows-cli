@@ -40,6 +40,8 @@ class PlanetAPI:
 
     def create(self, req: CreateRequest) -> CreateResult:
         data = self._client.post("/console/planet/add", asdict(req))
+        if isinstance(data, list):
+            data = {}
         return _from_dict(CreateResult, data) if data else CreateResult(uuid="")
 
     # --- Instance lifecycle ---
