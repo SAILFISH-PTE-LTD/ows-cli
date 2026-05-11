@@ -1,4 +1,4 @@
-"""ows order — manage orders."""
+"""ows order — 充值记录."""
 import click
 from ows.cli import handle_api_errors, json_output, pass_client
 from ows.models import OrderListRequest
@@ -7,7 +7,7 @@ from ows.api.order import ORDER_STATUS
 
 @click.group()
 def order():
-    """Manage orders."""
+    """充值记录."""
     pass
 
 
@@ -23,7 +23,7 @@ def order():
 @pass_client
 @handle_api_errors
 def order_list(client, **kwargs):
-    """List orders."""
+    """充值记录列表."""
     data = client.order.list_orders(OrderListRequest(**kwargs))
     if json_output({"total": data.total, "list": [
         {
@@ -36,7 +36,7 @@ def order_list(client, **kwargs):
     ]}):
         return
     if not data.list:
-        click.echo("No orders found.")
+        click.echo("无充值记录.")
         return
     click.echo(f"{'ID':<8} {'Order SN':<22} {'Type':<6} {'Prod':<6} {'Status':<10} {'Amount':>10} {'Created'}")
     click.echo("-" * 100)
