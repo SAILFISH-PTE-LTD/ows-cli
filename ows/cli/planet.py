@@ -16,8 +16,7 @@ from ows.cli.resolvers import (
     resolve_project,
 )
 from ows.errors import APIError
-from ows.deploy import DeployClient, REGION_MAP
-from ows.models import CreateRequest, DataDisk, DeployRequest, ListRequest, PriceRequest, VpsLoginInfo
+from ows.models import CreateRequest, DataDisk, ListRequest, PriceRequest
 
 
 _DEFAULT_FLAVOR_CORES = 1
@@ -118,58 +117,6 @@ def _poll_instance(client, name, region_uuid, timeout=120, interval=5):
         if not found:
             click.echo(".", nl=False)
     return None
-
-
-def _resolve_region_id(city_name):
-    """Map ows.us city_name to deploy region_id."""
-    if not city_name:
-        click.echo("Error: city_name is empty, please provide --region-id manually", err=True)
-        keys = list(REGION_MAP.keys())[:10]
-        click.echo(f"Available region ids (first 10): {', '.join(keys)}", err=True)
-        raise click.Abort()
-    region_id = REGION_MAP.get(city_name)
-    if not region_id:
-        click.echo(f"Error: unknown city '{city_name}', please provide --region-id manually", err=True)
-        keys = list(REGION_MAP.keys())[:10]
-        click.echo(f"Available region ids (first 10): {', '.join(keys)}", err=True)
-        raise click.Abort()
-    return region_id
-
-
-def _get_deploy_client(client, sos_token_arg):
-    """Get or create DeployClient from config or CLI arg."""
-    sos_token = sos_token_arg or (client.auth.config.sos_token if hasattr(client.auth, 'config') else "")
-    if not sos_token:
-        _show_error(
-            "sos_token is required for deploy. Set it in config.json or use --sos-token",
-            "ows planet deploy <UUID> --password PWD [--sos-token TOKEN]",
-            "Get sos_token from dashboard.metrovpn.xyz cookie"
-        )
-    return DeployClient(sos_token)
-
-
-def _build_vps_infos_from_detail(inst, password):
-    """Build VpsLoginInfo list from InstanceDetail or Instance."""
-    return [
-        VpsLoginInfo(
-            vps_id=inst.uuid,
-            ip=inst.public_ip,
-            password=password,
-            os="ubuntu 20.04",
-            vps_type="1C-2G",
-            user="root",
-            port="22",
-        )
-    ]
-
-
-def _coerce_int(val, label):
-    """Safely convert to int with error message."""
-    try:
-        return int(val)
-    except (ValueError, TypeError):
-        click.echo(f"Error: cannot convert {label}='{val}' to int", err=True)
-        raise click.Abort()
 
 
 @click.group()
@@ -390,7 +337,7 @@ def planet_create(client, region, flavor_type, image_type, flavor, image, system
     if not region:
         _show_error("Missing --region (city_code/name/UUID)",
                     "ows planet create --region <CODE|NAME|UUID> [--deploy]",
-                    "region → ows product regions\n      --deploy → add --deploy to deploy to MetroVPN after creation")
+                    "region -> ows product regions\n      --deploy -> add --deploy to deploy to MetroVPN after creation")
     region_uuid = resolve_region(client, region)
     if not region_uuid:
         _show_error(f"Unknown region: {region}", "ows planet create --region <CODE|NAME|UUID>")
@@ -471,57 +418,16 @@ def planet_create(client, region, flavor_type, image_type, flavor, image, system
 
     # --- Deploy after create ---
     if deploy:
-        if inst is None:
-            click.echo("Error: --deploy requires instance info but creation did not return it", err=True)
-            click.echo("Retry manually with: ows planet deploy <UUID> --password PWD", err=True)
-            sys.exit(1)
-
-        if not inst.public_ip:
-            click.echo("Error: --deploy requires public IP but instance has none", err=True)
-            click.echo("Retry manually with: ows planet deploy <UUID> --password PWD", err=True)
-            sys.exit(1)
-
-        region_id = deploy_region_id
-        if not region_id:
-            try:
-                region_id = _resolve_region_id(inst.city_name)
-            except click.Abort:
-                click.echo("Error: cannot resolve region_id for deploy. Provide --deploy-region-id", err=True)
-                sys.exit(1)
-
-        vps_infos = _build_vps_infos_from_detail(inst, admin_pass)
-        vps_infos[0].os = deploy_os
-        vps_infos[0].vps_type = deploy_type
-        vps_infos[0].user = deploy_user
-        vps_infos[0].port = deploy_port
-
-        deploy_disk = system_disk
-        if not (inst.storage and str(inst.storage).strip()):
-            deploy_disk = system_disk
-        else:
-            try:
-                deploy_disk = int(inst.storage)
-            except (ValueError, TypeError):
-                deploy_disk = system_disk
-
-        req = DeployRequest(
-            region_id=region_id,
-            vcpus=_coerce_int(inst.cores, "cores"),
-            memory=_coerce_int(inst.memory, "memory"),
-            disk=deploy_disk,
-            vps_infos=vps_infos,
-            quota_type=deploy_quota_type,
-            quota=deploy_quota,
-            bandwidth=deploy_bandwidth,
-            group_id=deploy_group_id,
-        )
-        dc = _get_deploy_client(client, sos_token)
-        result = dc.create_deploy(req)
-        if result.code == 200:
-            click.echo(f"Deployed: {inst.uuid} — {result.msg}")
-        else:
-            click.echo(f"Created: {inst.uuid} — but deploy failed: [{result.code}] {result.msg}", err=True)
-            click.echo(f"Retry manually: ows planet deploy {inst.uuid} --password PWD", err=True)
+        try:
+            from ows_deploy.cli import _do_create_deploy
+            _do_create_deploy(
+                client, inst, admin_pass, system_disk,
+                sos_token, deploy_region_id, deploy_os, deploy_type,
+                deploy_user, deploy_port, deploy_quota_type, deploy_quota,
+                deploy_bandwidth, deploy_group_id,
+            )
+        except ImportError:
+            click.echo("Error: ows_deploy module not found. Install ows_deploy/ for deploy support.", err=True)
             sys.exit(1)
 
 
@@ -648,115 +554,10 @@ def planet_reboot(client, instance, reboot_type):
     click.echo(f"Rebooting: {inst.uuid}")
 
 
-@planet.command("deploy")
-@click.argument("instance", required=False, metavar="UUID|NAME|IP")
-@click.option("--sos-token", default="", help="sos_token from dashboard.metrovpn.xyz")
-@click.option("--password", default="", help="VPS login password (required)")
-@click.option("--vps-id", default="")
-@click.option("--os", default="ubuntu 20.04", help="OS label for MetroVPN panel")
-@click.option("--type", "vps_type", default="1C-2G", help="Spec label for MetroVPN panel")
-@click.option("--user", default="root")
-@click.option("--ip", default="")
-@click.option("--port", default="22")
-@click.option("--brand-id", default="ows.us")
-@click.option("--region-id", default="")
-@click.option("--vcpus", type=int, default=None)
-@click.option("--memory", type=int, default=None)
-@click.option("--disk", type=int, default=40, show_default=True, help="System disk size in GB")
-@click.option("--quota-type", type=int, default=0)
-@click.option("--quota", type=int, default=2000)
-@click.option("--bandwidth", type=int, default=100)
-@click.option("--group-id", default="Vip HighSpeed Server")
-@click.option("--vps-infos-json", default="", help="JSON array to override vps_infos")
-@handle_api_errors
-@pass_client
-def planet_deploy(client, instance, sos_token, password, vps_id, os, vps_type, user, ip, port,
-                  brand_id, region_id, vcpus, memory, disk, quota_type, quota, bandwidth,
-                  group_id, vps_infos_json):
-    """Deploy a Planet instance by UUID, name, or IP."""
-    if not instance:
-        _show_error("Missing UUID|NAME|IP", "ows planet deploy <UUID|NAME|IP>", _hint("instance"))
-    if not password:
-        _show_error("Missing --password", "ows planet deploy <UUID|NAME|IP> --password PWD")
-
-    inst = resolve_instance(client, instance)
-    if not inst:
-        _show_error(f"No instance found: {instance}", "ows planet deploy <UUID|NAME|IP>")
-
-    uuid = inst.uuid
-
-    # Get instance detail
-    inst = _safe_call(client, client.planet.get_detail, uuid)
-    if inst.status != 1:
-        _show_error(
-            f"Instance status is {inst.status_name} ({inst.status}), need Running (1).",
-            "ows planet deploy <UUID> --password PWD"
-        )
-
-    public_ip = inst.public_port.get("ip", "") if isinstance(inst.public_port, dict) else ""
-
-    if not ip:
-        ip = public_ip
-
-    if not ip:
-        _show_error(
-            "Instance has no public IP yet. Wait for creation to complete.",
-            f"Check with: ows planet detail {uuid}"
-        )
-
-    # Resolve region_id
-    if not region_id:
-        region_id = _resolve_region_id(inst.city_name)
-
-    # Build vps_infos
-    if vps_infos_json:
-        vps_data = json.loads(vps_infos_json)
-        vps_infos = [VpsLoginInfo(**d) for d in vps_data]
-    else:
-        vps_infos = _build_vps_infos_from_detail(inst, password)
-        info = vps_infos[0]
-        if vps_id:
-            info.vps_id = vps_id
-        if ip:
-            info.ip = ip
-        info.os = os
-        info.vps_type = vps_type
-        info.user = user
-        info.port = port
-
-    # Validate vps_infos
-    if not vps_infos:
-        _show_error("vps_infos cannot be empty", "")
-    if len(vps_infos) > 5:
-        _show_error("vps_infos cannot exceed 5 items", "")
-
-    # Build DeployRequest
-    req = DeployRequest(
-        region_id=region_id,
-        vcpus=vcpus if vcpus is not None else _coerce_int(inst.cores, "cores"),
-        memory=memory if memory is not None else _coerce_int(inst.memory, "memory"),
-        disk=disk,
-        vps_infos=vps_infos,
-        vps_brand_id=brand_id,
-        quota_type=quota_type,
-        quota=quota,
-        bandwidth=bandwidth,
-        group_id=group_id,
-    )
-
-    # Call deploy
-    dc = _get_deploy_client(client, sos_token)
-    result = dc.create_deploy(req)
-    if result.code == 200:
-        if json_output({"ok": True, "uuid": uuid, "action": "deploy", "msg": result.msg}):
-            return
-        click.echo(f"Deployed: {uuid} — {result.msg}")
-    else:
-        msg = result.msg or "unknown error"
-        if json_output({"ok": False, "uuid": uuid, "action": "deploy",
-                        "code": result.code, "msg": msg, "ip": result.ip}):
-            return
-        click.echo(f"Deploy failed: [{result.code}] {msg}", err=True)
-        if result.ip:
-            click.echo(f"Failed IP: {result.ip}", err=True)
-        sys.exit(1)
+# Conditionally inject deploy commands from ows_deploy/
+try:
+    from ows_deploy.cli import register_commands as _register_deploy_commands
+    # Will be called from cli/__init__.py after cli group is created
+    _OWSDEPLOY_AVAILABLE = True
+except ImportError:
+    _OWSDEPLOY_AVAILABLE = False

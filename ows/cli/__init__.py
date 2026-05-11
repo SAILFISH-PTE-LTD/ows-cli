@@ -68,7 +68,7 @@ STATUS_MAP = {
 
 
 @click.group()
-@click.option("-c", "--config", default="config.json", help="Config file path")
+@click.option("-c", "--config", default="config.json", help="Config file path (or use OWS_APP_ID/OWS_APP_SECRET env vars)")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON (for scripts/AI)")
 @click.pass_context
 def cli(ctx, config, as_json):
@@ -91,6 +91,9 @@ cli.add_command(planet)
 cli.add_command(product)
 cli.add_command(order)
 
-# Register deploy as top-level command (alias)
-from ows.cli.planet import planet_deploy  # noqa: E402
-cli.add_command(planet_deploy, name="deploy")
+# Register deploy commands if available (private ows_deploy/ module)
+try:
+    from ows_deploy.cli import register_commands as _register_deploy_commands
+    _register_deploy_commands(planet, cli)
+except ImportError:
+    pass

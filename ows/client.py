@@ -1,3 +1,4 @@
+import os
 import requests
 from ows.auth import AuthSession
 from ows.config import Config
@@ -6,7 +7,12 @@ from ows.api.planet import PlanetAPI
 from ows.api.product import ProductAPI
 from ows.api.order import OrderAPI
 from ows.api.bill import BillAPI
-from ows.deploy import DeployClient
+
+# DeployClient is private — conditionally loaded from ows_deploy/
+try:
+    from ows_deploy import DeployClient
+except ImportError:
+    DeployClient = None
 
 
 class OwsClient:
@@ -21,11 +27,14 @@ class OwsClient:
         self.product = ProductAPI(self)
         self.order = OrderAPI(self)
         self.bill = BillAPI(self)
-        self.deploy = DeployClient(sos_token) if sos_token else None
+        self.deploy = DeployClient(sos_token) if DeployClient and sos_token else None
 
     @classmethod
     def from_config(cls, path: str = "config.json", **kwargs) -> "OwsClient":
-        config = Config.load(path)
+        if os.path.isfile(path):
+            config = Config.load(path)
+        else:
+            config = Config.from_env()
         auth = AuthSession(config)
         sos_token = kwargs.pop("sos_token", config.sos_token) or None
         return cls(auth, sos_token=sos_token, **kwargs)
