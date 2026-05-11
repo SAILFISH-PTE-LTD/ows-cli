@@ -51,12 +51,16 @@ def order_billing(client, **kwargs):
 
 
 @order.command("detail")
-@click.option("--month", required=True, help="Month (YYYY-MM), e.g. --month 2026-05")
+@click.option("--month", default="", help="Month (YYYY-MM)")
 @click.option("--team-uuid", default="", help="Team UUID")
 @pass_client
 @handle_api_errors
 def order_detail(client, month, team_uuid):
     """Monthly bill detail (by resource)."""
+    if not month:
+        click.echo("Usage: ows order detail --month YYYY-MM")
+        click.echo("Example: ows order detail --month 2026-05")
+        return
     try:
         y, m = map(int, month.split("-"))
         begin_dt = _time.strptime(f"{y}-{m:02d}-01", "%Y-%m-%d")
