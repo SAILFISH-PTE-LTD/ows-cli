@@ -9,7 +9,7 @@ class AuthError(OwsError):
 
 
 class APIError(OwsError):
-    """API returned a non-200 code."""
+    """API returned a non-200 response code."""
     def __init__(self, code: int, message: str, data: object = None):
         self.code = code
         self.message = message

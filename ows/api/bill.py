@@ -5,6 +5,7 @@ if TYPE_CHECKING:
     from ows.client import OwsClient
 from ows.models import BillItem, BillDetail, BillMonthRequest, _from_dict
 
+# Mapping of bill type codes to human-readable labels.
 BILL_TYPE = {
     1: "Instance",
     2: "Traffic",
@@ -12,10 +13,22 @@ BILL_TYPE = {
 
 
 class BillAPI:
+    """API client for billing operations.
+
+    Provides methods for querying billing and invoice details.
+    """
     def __init__(self, client: OwsClient):
         self._client = client
 
     def get_detail_by_month(self, req: BillMonthRequest = None) -> BillDetail:
+        """Get monthly bill breakdown by resource.
+
+        Args:
+            req: Optional bill month request. Defaults to empty BillMonthRequest.
+
+        Returns:
+            BillDetail: Monthly bill details with per-resource breakdown.
+        """
         if req is None:
             req = BillMonthRequest()
         data = self._client.post("/console/bill/getDetailByMonth", asdict(req))
