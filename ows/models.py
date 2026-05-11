@@ -303,3 +303,42 @@ class OrderListRequest:
     end_date: str = ""
     time_sort: int = 0
     price_sort: int = 0
+
+
+# --- Bill ---
+
+@dataclass
+class BillItem:
+    sid: int = 0
+    region_id: int = 0
+    total_money: str = "0"
+    start_time: int = 0
+    end_time: int = 0
+    total: int = 0
+    quantity: int = 0
+    display_value: str = "0"
+    max_quantity: int = 0
+    type: int = 0
+    server_end_time: int = 0
+    product_info: str = ""
+    name: str = ""
+    product_type: int = 0
+    product_name: str = ""
+    ip: str = ""
+    region_name: str = ""
+    description: str = ""
+
+
+@dataclass
+class BillDetail:
+    list: List[BillItem] = field(default_factory=list)
+    invid: str = ""
+    user_total_money: str = "0"
+    total_gift: str = "0"
+
+
+@dataclass
+class BillMonthRequest:
+    begin_date: str = ""
+    end_date: str = ""
+    team_uuid: str = ""

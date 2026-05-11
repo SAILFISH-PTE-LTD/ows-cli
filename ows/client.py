@@ -5,6 +5,7 @@ from ows.errors import APIError, AuthError, NetworkError
 from ows.api.planet import PlanetAPI
 from ows.api.product import ProductAPI
 from ows.api.order import OrderAPI
+from ows.api.bill import BillAPI
 from ows.deploy import DeployClient
 
 
@@ -19,6 +20,7 @@ class OwsClient:
         self.planet = PlanetAPI(self)
         self.product = ProductAPI(self)
         self.order = OrderAPI(self)
+        self.bill = BillAPI(self)
         self.deploy = DeployClient(sos_token) if sos_token else None
 
     @classmethod
