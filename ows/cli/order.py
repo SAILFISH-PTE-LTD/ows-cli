@@ -51,35 +51,27 @@ def order_billing(client, **kwargs):
 
 
 @order.command("detail")
-@click.option("--month", default="", help="Month (YYYY-MM), auto-calculates begin/end timestamps")
-@click.option("--begin-date", default="", help="Begin timestamp (Unix seconds)")
-@click.option("--end-date", default="", help="End timestamp (Unix seconds)")
+@click.option("--month", required=True, help="Month (YYYY-MM), e.g. --month 2026-05")
 @click.option("--team-uuid", default="", help="Team UUID")
 @pass_client
 @handle_api_errors
-def order_detail(client, month, begin_date, end_date, team_uuid):
+def order_detail(client, month, team_uuid):
     """Monthly bill detail (by resource)."""
-    if month and (not begin_date or not end_date):
-        try:
-            y, m = map(int, month.split("-"))
-            begin_dt = _time.strptime(f"{y}-{m:02d}-01", "%Y-%m-%d")
-            begin = int(_time.mktime(begin_dt))
-            if m == 12:
-                end_dt = _time.strptime(f"{y + 1}-01-01", "%Y-%m-%d")
-            else:
-                end_dt = _time.strptime(f"{y}-{m + 1:02d}-01", "%Y-%m-%d")
-            end = int(_time.mktime(end_dt)) - 1
-            begin_date = str(begin)
-            end_date = str(end)
-        except (ValueError, TypeError):
-            click.echo("Error: --month must be YYYY-MM", err=True)
-            return
-    if not begin_date or not end_date:
-        click.echo("Error: --begin-date and --end-date required (or use --month YYYY-MM)", err=True)
+    try:
+        y, m = map(int, month.split("-"))
+        begin_dt = _time.strptime(f"{y}-{m:02d}-01", "%Y-%m-%d")
+        begin = int(_time.mktime(begin_dt))
+        if m == 12:
+            end_dt = _time.strptime(f"{y + 1}-01-01", "%Y-%m-%d")
+        else:
+            end_dt = _time.strptime(f"{y}-{m + 1:02d}-01", "%Y-%m-%d")
+        end = int(_time.mktime(end_dt)) - 1
+    except (ValueError, TypeError):
+        click.echo("Error: --month must be YYYY-MM, e.g. --month 2026-05", err=True)
         return
 
     data = client.bill.get_detail_by_month(BillMonthRequest(
-        begin_date=begin_date, end_date=end_date, team_uuid=team_uuid,
+        begin_date=str(begin), end_date=str(end), team_uuid=team_uuid,
     ))
     if json_output({
         "invid": data.invid, "user_total_money": data.user_total_money,
