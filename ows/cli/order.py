@@ -2,7 +2,7 @@
 import click
 from ows.cli import handle_api_errors, json_output, pass_client
 from ows.models import OrderListRequest
-from ows.api.order import ORDER_STATUS, ORDER_TYPE, ORDER_PRODUCT_TYPE
+from ows.api.order import ORDER_STATUS
 
 
 @click.group()
@@ -38,12 +38,10 @@ def order_list(client, **kwargs):
     if not data.list:
         click.echo("No orders found.")
         return
-    click.echo(f"{'ID':<8} {'Order SN':<22} {'Type':<8} {'Product':<12} {'Status':<10} {'Amount':>10} {'Created'}")
-    click.echo("-" * 110)
+    click.echo(f"{'ID':<8} {'Order SN':<22} {'Type':<6} {'Prod':<6} {'Status':<10} {'Amount':>10} {'Created'}")
+    click.echo("-" * 100)
     for o in data.list:
-        type_name = ORDER_TYPE.get(o.type, str(o.type))
-        prod_name = ORDER_PRODUCT_TYPE.get(o.product_type, str(o.product_type))
         status_name = ORDER_STATUS.get(o.status, str(o.status))
-        click.echo(f"{o.id:<8} {o.order_sn:<22} {type_name:<8} {prod_name:<12} {status_name:<10} {o.amount:>8.2f}   {o.ctime}")
+        click.echo(f"{o.id:<8} {o.order_sn:<22} {o.type:<6} {o.product_type:<6} {status_name:<10} {o.amount:>8.2f}   {o.ctime}")
     click.echo()
     click.echo(f"Total: {data.total}  |  Page: {kwargs['page_num']}  |  Showing: {len(data.list)}")

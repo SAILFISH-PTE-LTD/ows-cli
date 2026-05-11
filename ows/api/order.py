@@ -13,18 +13,6 @@ ORDER_STATUS = {
     3: "Deleted",
 }
 
-ORDER_TYPE = {
-    1: "New",
-    2: "Renew",
-    3: "Upgrade",
-}
-
-ORDER_PRODUCT_TYPE = {
-    1: "ECS",
-    2: "BareMetal",
-    3: "CDN",
-}
-
 
 class OrderAPI:
     def __init__(self, client: OwsClient):
