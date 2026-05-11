@@ -1,6 +1,8 @@
 """ows order — billing records."""
 import calendar
+import json
 import time as _time
+from datetime import datetime, timezone
 import click
 from ows.cli import handle_api_errors, json_output, pass_client
 from ows.models import OrderListRequest, BillMonthRequest
@@ -53,9 +55,10 @@ def order_billing(client, **kwargs):
 @order.command("detail")
 @click.option("--month", default="", help="Month (YYYY-MM)")
 @click.option("--team-uuid", default="", help="Team UUID")
+@click.option("--invoice", is_flag=True, help="Output in invoice JSON format")
 @pass_client
 @handle_api_errors
-def order_detail(client, month, team_uuid):
+def order_detail(client, month, team_uuid, invoice):
     """Monthly bill detail (by resource)."""
     if not month:
         click.echo("Usage: ows order detail --month YYYY-MM")
@@ -77,6 +80,11 @@ def order_detail(client, month, team_uuid):
     data = client.bill.get_detail_by_month(BillMonthRequest(
         begin_date=str(begin), end_date=str(end), team_uuid=team_uuid,
     ))
+
+    if invoice:
+        _output_invoice(data, y, m)
+        return
+
     if json_output({
         "invid": data.invid, "user_total_money": data.user_total_money,
         "total_gift": data.total_gift, "list": [
@@ -104,3 +112,19 @@ def order_detail(client, month, team_uuid):
         click.echo(f"{name:<22} {i.region_name:<8} {i.ip:<16} {type_name:<10} {money:>12}   {dur}")
     click.echo()
     click.echo(f"Total: {data.user_total_money} USD  |  Gift: {data.total_gift} USD  |  Invoice: {data.invid}")
+
+
+def _fmt_ts(ts):
+    """Convert Unix timestamp to MM/DD/YYYY HH:MM UTC."""
+    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%m/%d/%Y %H:%M")
+
+
+def _output_invoice(data, year, month):
+    """Print invoice JSON matching gen_ows_invoice.py format."""
+    rows = [["Start", "End", "Description", "Quantity", "Price"]]
+    for i in data.list:
+        desc = i.description or f"{i.name} <{i.ip}> [{i.region_name}]"
+        price = f"{i.total_money} USD"
+        rows.append([_fmt_ts(i.start_time), _fmt_ts(i.end_time), desc, str(i.quantity), price])
+    rows.append(["", "", "", "Total", f"{data.user_total_money} USD"])
+    click.echo(json.dumps({"year": year, "month": month, "rows": rows}, indent=2))
