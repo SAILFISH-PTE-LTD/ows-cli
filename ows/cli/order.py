@@ -8,6 +8,19 @@ from ows.api.order import ORDER_STATUS
 from ows.api.bill import BILL_TYPE
 
 
+import click.parser as _click_parser
+
+
+class _OptionalPath(click.Option):
+    """Option usable as --flag alone (→ "__flag__") or --flag VALUE."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("is_flag", False)
+        kwargs.setdefault("flag_value", "__flag__")
+        kwargs["default"] = _click_parser.UNSET
+        super().__init__(*args, **kwargs)
+
+
 @click.group()
 def order():
     """Billing records."""
@@ -53,10 +66,11 @@ def order_billing(client, **kwargs):
 @order.command("detail")
 @click.option("--month", default="", help="Month (YYYY-MM)")
 @click.option("--team-uuid", default="", help="Team UUID")
-@click.option("--invoice", is_flag=True, help="Output in invoice JSON format")
+@click.option("--invoice", "invoice_path", default=None, cls=_OptionalPath,
+              help="Output as invoice JSON. Prints to stdout, or saves to PATH if given.")
 @pass_client
 @handle_api_errors
-def order_detail(client, month, team_uuid, invoice):
+def order_detail(client, month, team_uuid, invoice_path):
     """Monthly bill detail (by resource)."""
     if not month:
         click.echo("Usage: ows order detail --month YYYY-MM")
@@ -79,10 +93,16 @@ def order_detail(client, month, team_uuid, invoice):
         begin_date=str(begin), end_date=str(end), team_uuid=team_uuid,
     ))
 
-    if invoice:
+    if invoice_path is not None:
         try:
             from ows_deploy.bill import output_invoice
-            click.echo(output_invoice(data, y, m))
+            result = output_invoice(data, y, m)
+            if invoice_path == "__flag__":
+                click.echo(result)
+            else:
+                with open(invoice_path, "w", encoding="utf-8") as f:
+                    f.write(result)
+                click.echo(f"Saved invoice to {invoice_path}")
         except ImportError:
             click.echo("Error: ows_deploy module not found. Install ows_deploy/ for --invoice support.", err=True)
         return
